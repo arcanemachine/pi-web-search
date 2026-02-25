@@ -26,7 +26,14 @@ const GrepUrlContentParams = Type.Object({
   afterLines: Type.Optional(Type.Number({ description: "Number of lines of context after each match (default: 1)" })),
 });
 
-const cache = new Map<string, string>();
+// Cache entry with timestamp for expiration (5 minutes default TTL)
+interface CacheEntry {
+  text: string;
+  timestamp: number;
+}
+
+const cache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = (parseInt(process.env.CACHE_TTL_MINUTES || "5") * 60 * 1000);
 
 export default function(pi: ExtensionAPI) {
   // Search tool - searches the web or loads/extracts text from a URL
@@ -61,9 +68,9 @@ export default function(pi: ExtensionAPI) {
         };
       } else {
         const cached = cache.get(input);
-        if (cached) {
+        if (cached && (Date.now() - cached.timestamp) < CACHE_TTL_MS) {
           return {
-            content: [{ type: "text" as const, text: cached }],
+            content: [{ type: "text" as const, text: cached.text }],
             details: { url: input, cached: true },
           };
         }
@@ -85,7 +92,7 @@ export default function(pi: ExtensionAPI) {
           .replace(/^\s+|\s+$/g, "")
           .trim();
 
-        cache.set(input, text);
+        cache.set(input, { text, timestamp: Date.now() });
 
         return {
           content: [{ type: "text" as const, text: text }],
@@ -109,9 +116,12 @@ export default function(pi: ExtensionAPI) {
       const afterLines = (params.afterLines as number | undefined) ?? 1;
 
       const cached = cache.get(url);
-      let text: string = cached ?? "";
+      let text: string = "";
+      const isCached = cached && (Date.now() - cached.timestamp) < CACHE_TTL_MS;
 
-      if (!cached) {
+      if (isCached) {
+        text = cached.text;
+      } else {
         const res = await fetch(url, {
           headers: { "User-Agent": "Mozilla/5.0 (compatible; pi-agent/1.0)" },
         });
@@ -141,10 +151,10 @@ export default function(pi: ExtensionAPI) {
             .trim();
         }
 
-        cache.set(url, text);
+        cache.set(url, { text, timestamp: Date.now() });
       }
 
-      return { content: [{ type: "text" as const, text: grepWithContext(text, query, beforeLines, afterLines) }], details: { url, query, cached: !!cached } };
+      return { content: [{ type: "text" as const, text: grepWithContext(text, query, beforeLines, afterLines) }], details: { url, query, cached: isCached } };
     },
   });
 }
