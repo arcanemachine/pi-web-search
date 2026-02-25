@@ -22,6 +22,8 @@ const SearchParams = Type.Object({
 const GrepUrlContentParams = Type.Object({
   url: Type.String({ description: "The URL to fetch" }),
   query: Type.String({ description: "The search query to grep for" }),
+  beforeLines: Type.Optional(Type.Number({ description: "Number of lines of context before each match (default: 1)" })),
+  afterLines: Type.Optional(Type.Number({ description: "Number of lines of context after each match (default: 1)" })),
 });
 
 export default function(pi: ExtensionAPI) {
@@ -85,12 +87,14 @@ export default function(pi: ExtensionAPI) {
   pi.registerTool({
     name: "grep_url_content",
     label: "Grep URL Content",
-    description: "Fetch a web page and grep for specific content, returning matching lines with 2 lines of context before and after each match",
+    description: "Fetch a web page and grep for specific content, returning matching lines with configurable lines of context before and after each match (default: 1 before, 1 after)",
     parameters: GrepUrlContentParams,
 
     async execute(_toolCallId, params, _onUpdate, _ctx, _signal) {
       const url = params.url as string;
       const query = params.query as string;
+      const beforeLines = (params.beforeLines as number | undefined) ?? 1;
+      const afterLines = (params.afterLines as number | undefined) ?? 1;
 
       const res = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; pi-agent/1.0)" },
@@ -113,7 +117,7 @@ export default function(pi: ExtensionAPI) {
           .replace(/^\s+|\s+$/g, "")
           .trim();
 
-        return { content: [{ type: "text" as const, text: grepWithContext(text, query) }], details: { url, query } };
+        return { content: [{ type: "text" as const, text: grepWithContext(text, query, beforeLines, afterLines) }], details: { url, query } };
       }
 
       // Handle plain text or other content types directly
@@ -122,20 +126,19 @@ export default function(pi: ExtensionAPI) {
         .replace(/\n\s*\n/g, "\n\n")
         .replace(/^\s+|\s+$/g, "")
         .trim();
-      return { content: [{ type: "text" as const, text: grepWithContext(text, query) }], details: { url, query } };
+      return { content: [{ type: "text" as const, text: grepWithContext(text, query, beforeLines, afterLines) }], details: { url, query } };
     },
   });
 }
 
-function grepWithContext(text: string, query: string): string {
+function grepWithContext(text: string, query: string, beforeLines: number = 1, afterLines: number = 1): string {
   const lines = text.split("\n");
-  const contextLines = 2;
   const matches: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].toLowerCase().includes(query.toLowerCase())) {
-      const start = Math.max(0, i - contextLines);
-      const end = Math.min(lines.length, i + contextLines + 1);
+      const start = Math.max(0, i - beforeLines);
+      const end = Math.min(lines.length, i + afterLines + 1);
       for (let j = start; j < end; j++) {
         matches.push(lines[j]);
       }
