@@ -1,0 +1,21 @@
+{
+  "name": "pi-search-extension",
+  "version": "1.0.0",
+  "description": "Web search and URL loading extension for pi",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.ts",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "^1.18.2",
+    "@mariozechner/pi-ai": "^1.18.2",
+    "typescript": "^5.7.2"
+  }
+}
