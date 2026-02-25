@@ -66,7 +66,7 @@ export default function(pi: ExtensionAPI) {
             .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
             .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
             .replace(/<[^>]+>/g, " ")
-            .replace(/\s+/g, " ")
+            .replace(/\n\s*\n/g, "\n\n")
             .trim();
           
           return {
