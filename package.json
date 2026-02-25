@@ -14,8 +14,10 @@
     "watch": "tsc --watch"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^1.18.2",
-    "@mariozechner/pi-ai": "^1.18.2",
     "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-ai": "*"
   }
 }
