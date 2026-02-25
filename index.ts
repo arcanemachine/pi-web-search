@@ -39,7 +39,7 @@ export default function(pi: ExtensionAPI) {
       }
 
       const contentType = res.headers.get("content-type") || "";
-      
+
       // Handle HTML pages
       if (contentType.includes("text/html") || url.endsWith(".html")) {
         const html = await res.text();
@@ -48,10 +48,10 @@ export default function(pi: ExtensionAPI) {
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
           .replace(/<[^>]+>/g, " ")
           .replace(/\n\s*\n/g, "\n\n");
-        
+
         return { content: [{ type: "text" as const, text: grepWithContext(text, query) }], details: { url, query } };
       }
-      
+
       // Handle plain text or other content types directly
       const textContent = await res.text();
       return { content: [{ type: "text" as const, text: grepWithContext(textContent, query) }], details: { url, query } };
@@ -63,7 +63,7 @@ function grepWithContext(text: string, query: string): string {
   const lines = text.split("\n");
   const contextLines = 2;
   const matches: string[] = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].toLowerCase().includes(query.toLowerCase())) {
       const start = Math.max(0, i - contextLines);
@@ -73,6 +73,6 @@ function grepWithContext(text: string, query: string): string {
       }
     }
   }
-  
+
   return matches.join("\n");
 }
