@@ -1,11 +1,11 @@
 # pi-search
 
-Web search and URL loading for pi.
+Web search and URL content grep for pi.
 
 ## Usage
 
 **Search:** `action: "search"`, `input: "query"`  
-**Load URL:** `action: "load"`, `input: "https://url"`
+**Grep URL content:** `url: "https://url"`, `query: "search term"`
 
 ## Requirements
 

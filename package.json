@@ -1,7 +1,7 @@
 {
   "name": "pi-search-extension",
   "version": "1.0.0",
-  "description": "Web search and URL loading extension for pi",
+  "description": "Web search and URL content grep extension for pi",
   "type": "module",
   "main": "index.js",
   "types": "index.ts",
