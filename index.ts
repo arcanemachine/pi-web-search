@@ -68,12 +68,13 @@ export default function(pi: ExtensionAPI) {
         const text = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
+          .replace(/<[^>]+>/g, "")
+          .replace(/\n\s*\n/g, "\n\n")
+          .replace(/^\s+|\s+$/g, "")
           .trim();
 
         return {
-          content: [{ type: "text" as const, text: text.slice(0, 20000) }],
+          content: [{ type: "text" as const, text: text }],
           details: { url: input },
         };
       }
@@ -107,15 +108,21 @@ export default function(pi: ExtensionAPI) {
         let text = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\n\s*\n/g, "\n\n");
+          .replace(/<[^>]+>/g, "")
+          .replace(/\n\s*\n/g, "\n\n")
+          .replace(/^\s+|\s+$/g, "")
+          .trim();
 
         return { content: [{ type: "text" as const, text: grepWithContext(text, query) }], details: { url, query } };
       }
 
       // Handle plain text or other content types directly
       const textContent = await res.text();
-      return { content: [{ type: "text" as const, text: grepWithContext(textContent, query) }], details: { url, query } };
+      let text = textContent
+        .replace(/\n\s*\n/g, "\n\n")
+        .replace(/^\s+|\s+$/g, "")
+        .trim();
+      return { content: [{ type: "text" as const, text: grepWithContext(text, query) }], details: { url, query } };
     },
   });
 }
