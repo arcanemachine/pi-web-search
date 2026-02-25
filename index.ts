@@ -26,6 +26,8 @@ const GrepUrlContentParams = Type.Object({
   afterLines: Type.Optional(Type.Number({ description: "Number of lines of context after each match (default: 1)" })),
 });
 
+const cache = new Map<string, string>();
+
 export default function(pi: ExtensionAPI) {
   // Search tool - searches the web or loads/extracts text from a URL
   pi.registerTool({
@@ -58,6 +60,14 @@ export default function(pi: ExtensionAPI) {
           details: { query: input },
         };
       } else {
+        const cached = cache.get(input);
+        if (cached) {
+          return {
+            content: [{ type: "text" as const, text: cached }],
+            details: { url: input, cached: true },
+          };
+        }
+
         const res = await fetch(input, {
           headers: { "User-Agent": "Mozilla/5.0 (compatible; pi-agent/1.0)" },
         });
@@ -75,9 +85,11 @@ export default function(pi: ExtensionAPI) {
           .replace(/^\s+|\s+$/g, "")
           .trim();
 
+        cache.set(input, text);
+
         return {
           content: [{ type: "text" as const, text: text }],
-          details: { url: input },
+          details: { url: input, cached: false },
         };
       }
     },
@@ -87,46 +99,52 @@ export default function(pi: ExtensionAPI) {
   pi.registerTool({
     name: "grep_url_content",
     label: "Grep URL Content",
-    description: "Fetch a web page and grep for specific content, returning matching lines with configurable lines of context before and after each match (default: 1 before, 1 after)",
+    description: "Fetch a web page and grep for specific content, returning matching lines with configurable lines of context before and after each match (default: 1 before, 1 after). Uses cache to avoid repeated fetches.",
     parameters: GrepUrlContentParams,
 
     async execute(_toolCallId, params, _onUpdate, _ctx, _signal) {
       const url = params.url as string;
-      const query = params.query as string;
+      const query = params.query!;
       const beforeLines = (params.beforeLines as number | undefined) ?? 1;
       const afterLines = (params.afterLines as number | undefined) ?? 1;
 
-      const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; pi-agent/1.0)" },
-      });
+      const cached = cache.get(url);
+      let text: string = cached ?? "";
 
-      if (!res.ok) {
-        throw new Error(`Failed to load page: ${res.status} ${res.statusText}`);
+      if (!cached) {
+        const res = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; pi-agent/1.0)" },
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to load page: ${res.status} ${res.statusText}`);
+        }
+
+        const contentType = res.headers.get("content-type") || "";
+
+        // Handle HTML pages
+        if (contentType.includes("text/html") || url.endsWith(".html")) {
+          const html = await res.text();
+          text = html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+            .replace(/<[^>]+>/g, "")
+            .replace(/\n\s*\n/g, "\n\n")
+            .replace(/^\s+|\s+$/g, "")
+            .trim();
+        } else {
+          // Handle plain text or other content types directly
+          const textContent = await res.text();
+          text = textContent
+            .replace(/\n\s*\n/g, "\n\n")
+            .replace(/^\s+|\s+$/g, "")
+            .trim();
+        }
+
+        cache.set(url, text);
       }
 
-      const contentType = res.headers.get("content-type") || "";
-
-      // Handle HTML pages
-      if (contentType.includes("text/html") || url.endsWith(".html")) {
-        const html = await res.text();
-        let text = html
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-          .replace(/<[^>]+>/g, "")
-          .replace(/\n\s*\n/g, "\n\n")
-          .replace(/^\s+|\s+$/g, "")
-          .trim();
-
-        return { content: [{ type: "text" as const, text: grepWithContext(text, query, beforeLines, afterLines) }], details: { url, query } };
-      }
-
-      // Handle plain text or other content types directly
-      const textContent = await res.text();
-      let text = textContent
-        .replace(/\n\s*\n/g, "\n\n")
-        .replace(/^\s+|\s+$/g, "")
-        .trim();
-      return { content: [{ type: "text" as const, text: grepWithContext(text, query, beforeLines, afterLines) }], details: { url, query } };
+      return { content: [{ type: "text" as const, text: grepWithContext(text, query, beforeLines, afterLines) }], details: { url, query, cached: !!cached } };
     },
   });
 }
