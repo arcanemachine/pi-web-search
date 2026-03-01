@@ -1,5 +1,5 @@
 {
-  "name": "pi-search-extension",
+  "name": "pi-web-search",
   "version": "1.0.0",
   "description": "Web search and URL content grep extension for pi",
   "type": "module",

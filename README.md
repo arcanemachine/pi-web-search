@@ -1,4 +1,4 @@
-# pi-search
+# pi-web-search
 
 Web search and URL content grep for pi.
 

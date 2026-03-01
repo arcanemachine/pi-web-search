@@ -106,7 +106,7 @@ export default function(pi: ExtensionAPI) {
   pi.registerTool({
     name: "grep_url_content",
     label: "Grep URL Content",
-    description: "Fetch a web page and grep for specific content, returning matching lines with configurable lines of context before and after each match (default: 1 before, 1 after). Uses cache to avoid repeated fetches.",
+    description: "Fetch a web page and grep for specific content, returning matching lines with configurable lines of context before and after each match (default: 1 before, 1 after). Uses cache to avoid repeated fetches. Results contain line numbers to help economize context sprawl.",
     parameters: GrepUrlContentParams,
 
     async execute(_toolCallId, params, _onUpdate, _ctx, _signal) {
@@ -168,7 +168,7 @@ function grepWithContext(text: string, query: string, beforeLines: number = 1, a
       const start = Math.max(0, i - beforeLines);
       const end = Math.min(lines.length, i + afterLines + 1);
       for (let j = start; j < end; j++) {
-        matches.push(lines[j]);
+        matches.push(`${j + 1}: ${lines[j]}`);
       }
     }
   }
