@@ -58,7 +58,7 @@ export default function(pi: ExtensionAPI) {
 
         const data = await res.json();
         const results = (data.results ?? [])
-          .slice(0, 10)
+          .slice(0, 5)
           .map((r: any, i: number) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.content ?? ""}`)
           .join("\n\n");
 
