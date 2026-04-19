@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "description": "Web search and URL content grep extension for pi",
   "type": "module",
-  "main": "index.js",
-  "types": "index.ts",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   },
   "scripts": {
     "build": "tsc",
@@ -19,5 +21,18 @@
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*",
     "@mariozechner/pi-ai": "*"
-  }
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    },
+    "@mariozechner/pi-ai": {
+      "optional": true
+    }
+  },
+  "files": [
+    "index.ts",
+    "README.md",
+    "LICENSE.md"
+  ]
 }
