@@ -19,14 +19,14 @@
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-ai": "*"
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*"
   },
   "peerDependenciesMeta": {
-    "@mariozechner/pi-coding-agent": {
+    "@earendil-works/pi-coding-agent": {
       "optional": true
     },
-    "@mariozechner/pi-ai": {
+    "@earendil-works/pi-ai": {
       "optional": true
     }
   },

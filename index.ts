@@ -11,7 +11,7 @@
  * - Set SEARXNG_URL environment variable if your SearXNG instance is at a different URL
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
 const SearchParams = Type.Object({
@@ -82,11 +82,10 @@ export default function (pi: ExtensionAPI) {
               `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.content ?? ""}`,
           )
           .join("\n\n");
+        const text = `Search query: ${input}\n\n${results || "No results found."}`;
 
         return {
-          content: [
-            { type: "text" as const, text: results || "No results found." },
-          ],
+          content: [{ type: "text" as const, text }],
           details: { query: input },
         };
       } else {
