@@ -1,12 +1,12 @@
 /**
  * Web Search Extension
  *
- * Provides a /search tool to search the web, and /grep_url_content to search
+ * Provides a /search_web tool to search the web, and /grep_url_content to search
  * for specific content within a web page. Requires SearXNG to be running
  * (default: http://127.0.0.1:8080)
  *
  * Usage:
- * - /search: Search the web using SearXNG
+ * - /search_web: Search the web using SearXNG
  * - /grep_url_content: Fetch a URL and grep for specific content
  * - Set SEARXNG_URL environment variable if your SearXNG instance is at a different URL
  */
@@ -49,13 +49,13 @@ const CACHE_TTL_MS = parseInt(process.env.CACHE_TTL_MINUTES || "5") * 60 * 1000;
 export default function (pi: ExtensionAPI) {
   // Search tool - searches the web or loads/extracts text from a URL
   pi.registerTool({
-    name: "search",
-    label: "Search",
+    name: "search_web",
+    label: "Search Web",
     description: "Search the web or load and extract text from a URL",
     promptSnippet:
       "Search the web or load page text; when available, prefer subagents for broader investigations and Playwright for dynamic pages.",
     promptGuidelines: [
-      "Use search for lightweight web lookups and quick URL text extraction.",
+      "Use search_web for lightweight web lookups and quick URL text extraction.",
       "If available, prefer spawn_subagent or spawn_parallel for multi-step web research to preserve main-agent context.",
       "If available, prefer Playwright-based browsing for dynamic or interactive pages that require JavaScript rendering.",
     ],
