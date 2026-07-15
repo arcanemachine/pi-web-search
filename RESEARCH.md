@@ -22,7 +22,9 @@ The shared document service now enforces HTTP(S), credential, redirect, timeout,
 
 The recorded suite has 68 passing tests, strict type checking/build passes, the package dry-run includes all new modules, root filtered validation passes, and the extension loads in Pi RPC mode without `extension_error`. Deterministic local HTTP fixtures cover technical/article/malformed/large HTML, redirects, streamed/declarative oversize responses, supported native documents, client-rendered shells, HTTP errors, timeout/cancellation, cache/coalescing/refresh, cursor stability/expiry/eviction/conflicts, shared hashes, output bounds, and exact grep locators. The Phase 1 focused evaluation remains unchanged: `ddgr` succeeded 6/6 with expected authoritative domains within rank 3 for 6/6; the configured SearXNG returned evidence-backed `rate_limited` errors for 6/6 rather than false `no_results`. The approved default remains `ddgr,searxng`.
 
-Phase 3 remains: complete the user-facing documentation, perform the final running-Pi tool behavior verification, present any deviations, and remove the temporary planning artifacts only after verified acceptance.
+The comprehensive README and final no-model-call running-Pi verification are complete. An actual Pi RPC process registered all three tools and exercised a local deterministic SearXNG/document server: search miss/hit/local-limit/forced-refresh behavior, stable read pagination and hashes, shared read/grep cache identity, explicit `no_match`, invalid/fetch failures, cancellation, and protocol bounds all passed. A second Pi runtime check injected missing-`ddgr` behavior at the process-execution boundary: fallback reached local SearXNG with the PATH warning, while a local SearXNG HTTP 429 remained a structured terminal `rate_limited` error with both attempts recorded. The earlier real `ddgr` focused evaluation remains the executable-success check.
+
+Phase 3 now requires presenting this evidence and removing the temporary planning artifacts only after explicit verified acceptance.
 
 ## Approved product decisions
 
