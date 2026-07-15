@@ -15,7 +15,7 @@
     "build": "tsc --noEmit",
     "watch": "tsc --watch --noEmit",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md RESEARCH.md PLAN.md",
+    "format": "prettier --write index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md",
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
