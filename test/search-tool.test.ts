@@ -1,0 +1,136 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import type { ExtensionAPI, ExecResult } from "@earendil-works/pi-coding-agent";
+import { byteLength } from "../src/bounds.js";
+import { DEFAULT_CONFIG, type PiWebSearchConfig } from "../src/config.js";
+import { createSearchToolController } from "../src/tools/search-web.js";
+
+interface RegisteredTool {
+  name: string;
+  execute(
+    toolCallId: string,
+    params: Record<string, unknown>,
+    signal: AbortSignal | undefined,
+    onUpdate: undefined,
+    ctx: { cwd: string },
+  ): Promise<{
+    content: Array<{ type: "text"; text: string }>;
+    details: Record<string, unknown>;
+  }>;
+}
+
+function commandResult(overrides: Partial<ExecResult> = {}): ExecResult {
+  return { stdout: "", stderr: "", code: 0, killed: false, ...overrides };
+}
+
+describe("search_web tool", () => {
+  it("registers the approved schema and returns bounded structured provenance", async () => {
+    const tools: RegisteredTool[] = [];
+    const pi = {
+      registerTool(tool: RegisteredTool) {
+        tools.push(tool);
+      },
+    } as unknown as ExtensionAPI;
+    const config: PiWebSearchConfig = {
+      ...DEFAULT_CONFIG,
+      backends: ["ddgr"],
+      searchMaxResults: 2,
+      searchMaxLimitResults: 3,
+      searchMaxOutputBytes: 4_096,
+    };
+    const controller = createSearchToolController(pi, () => config, {
+      fetch: (async () => {
+        throw new Error("SearXNG should not run");
+      }) as typeof fetch,
+      execute: async (_command, args) =>
+        args[0] === "--version"
+          ? commandResult({ stdout: "2.2" })
+          : commandResult({
+              stdout: JSON.stringify(
+                Array.from({ length: 5 }, (_, index) => ({
+                  title: `Result ${index}`,
+                  url: `https://example.com/${index}`,
+                  abstract: "Snippet",
+                })),
+              ),
+            }),
+      now: () => 1_000,
+    });
+    controller.register();
+    const tool = tools.find((candidate) => candidate.name === "search_web");
+    assert.ok(tool);
+
+    const result = await tool.execute(
+      "call",
+      { query: "query", limit: 10 },
+      undefined,
+      undefined,
+      { cwd: process.cwd() },
+    );
+    assert.ok(
+      byteLength(result.content[0].text) <= config.searchMaxOutputBytes,
+    );
+    assert.equal(result.details.status, "ok");
+    const provenance = result.details.provenance as {
+      backend?: string;
+      cache?: { status?: string };
+    };
+    assert.equal(provenance.backend, "ddgr");
+    assert.equal(provenance.cache?.status, "miss");
+    const data = result.details.data as { results: unknown[] };
+    assert.equal(data.results.length, 3);
+    const warnings = result.details.warnings as Array<{ code?: string }>;
+    assert.equal(warnings[0].code, "limit_clamped");
+  });
+
+  it("falls through from missing ddgr to SearXNG with a bounded warning", async () => {
+    const tools: RegisteredTool[] = [];
+    const pi = {
+      registerTool(tool: RegisteredTool) {
+        tools.push(tool);
+      },
+    } as unknown as ExtensionAPI;
+    const config: PiWebSearchConfig = {
+      ...DEFAULT_CONFIG,
+      backends: ["ddgr", "searxng"],
+    };
+    const controller = createSearchToolController(pi, () => config, {
+      execute: async () => {
+        throw new Error("spawn ddgr ENOENT");
+      },
+      fetch: (async () =>
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                title: "Fallback result",
+                url: "https://example.com",
+                content: "SearXNG",
+              },
+            ],
+          }),
+          { headers: { "content-type": "application/json" } },
+        )) as typeof fetch,
+      now: () => 1_000,
+    });
+    controller.register();
+    const tool = tools.find((candidate) => candidate.name === "search_web");
+    assert.ok(tool);
+
+    const result = await tool.execute(
+      "call",
+      { query: "query" },
+      undefined,
+      undefined,
+      { cwd: process.cwd() },
+    );
+    assert.equal(result.details.status, "ok");
+    assert.equal(
+      (result.details.provenance as { backend?: string }).backend,
+      "searxng",
+    );
+    const warnings = result.details.warnings as Array<{ message?: string }>;
+    assert.match(warnings[0].message ?? "", /PATH/);
+    assert.ok(byteLength(JSON.stringify(warnings)) < 2_000);
+  });
+});

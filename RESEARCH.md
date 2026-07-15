@@ -16,17 +16,11 @@ SearXNG upstream failures can currently appear as successful empty searches. The
 
 ## Current state
 
-The runtime remains a single `index.ts`:
+Phase 0 and Phase 1 are implemented and verified. `index.ts` is a thin registrar over foundational configuration/contracts/bounds/formatting and the ordered search service. The public `search_web` tool is now search-only, uses the configured `ddgr`/SearXNG order, returns bounded structured outcomes and provenance, distinguishes evidence-backed operational failures from legitimate emptiness, enforces the process-local limiter, and uses bounded TTL/LRU caching plus identical in-flight coalescing. Both adapters enforce timeout/cancellation and validate native data; `ddgr` uses argv-only execution and a cached version/PATH probe.
 
-- `search_web` combines search and URL loading through an `action` field;
-- search calls one SearXNG instance and treats an empty result array as `No results found`;
-- page extraction removes HTML with regular expressions;
-- `grep_url_content` returns empty text for no matches;
-- the page cache is process-local, unbounded, and lazily expires entries;
-- fetches and subprocesses have no complete timeout/cancellation policy;
-- tool execution arguments use the old order and do not forward Pi's `AbortSignal`.
+The recorded suite has 47 passing tests, strict type checking/build passes, and the publish file set includes `src/`. The Phase 1 focused evaluation ran six non-persistent query categories per adapter with ten seconds between outbound searches. Aggregate results: `ddgr` succeeded 6/6, placed the expected authoritative domain at rank 1 in 5/6 and within rank 3 in 6/6, produced no malformed fields or obvious-spam heuristic hits, and had about 1.18 s mean latency. The configured SearXNG returned evidence-backed `rate_limited` errors for 6/6 rather than false `no_results`, with about 1.07 s mean latency. The approved default remains `ddgr,searxng`.
 
-No runtime implementation, dependency, or public interface has changed during research.
+Phase 2 has not started. `grep_url_content` remains on the bounded compatibility bridge, `read_url_content` is not registered yet, and static HTML extraction still uses the old regular-expression path until the shared snapshot service replaces it.
 
 ## Approved product decisions
 

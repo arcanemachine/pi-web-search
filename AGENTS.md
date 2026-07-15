@@ -20,10 +20,15 @@ Artifact lifecycle:
 
 ## Pre-commit
 
+Run the child package's complete, independently installable validation:
+
 ```bash
-npx tsc --noEmit
-npx prettier --write index.ts package.json
+npm run typecheck
+npm run format
+npm test
 ```
+
+The package scripts cover `index.ts`, all TypeScript under `src/` and `test/`, and the active Markdown planning files.
 
 ## Commit Style
 

@@ -1,0 +1,97 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  ConfigurationError,
+  DEFAULT_CONFIG,
+  resolveConfig,
+} from "../src/config.js";
+
+describe("pi-web-search configuration", () => {
+  it("merges global and project package settings by property", () => {
+    const config = resolveConfig(
+      {
+        "pi-web-search": {
+          searxngUrl: "https://global.example",
+          searchMaxResults: 4,
+        },
+      },
+      { "pi-web-search": { searchMaxResults: 7 } },
+      {},
+    );
+
+    assert.equal(config.searxngUrl, "https://global.example");
+    assert.equal(config.searchMaxResults, 7);
+    assert.equal(
+      config.searchMaxLimitResults,
+      DEFAULT_CONFIG.searchMaxLimitResults,
+    );
+  });
+
+  it("uses compatibility environment values only below settings", () => {
+    const fromEnvironment = resolveConfig(
+      {},
+      {},
+      {
+        SEARXNG_URL: "https://environment.example",
+        CACHE_TTL_MINUTES: "7",
+      },
+    );
+    assert.equal(fromEnvironment.searxngUrl, "https://environment.example");
+    assert.equal(fromEnvironment.documentCacheTtlSeconds, 420);
+
+    const configured = resolveConfig(
+      { "pi-web-search": { searxngUrl: "https://configured.example" } },
+      { "pi-web-search": { documentCacheTtlSeconds: 90 } },
+      {
+        SEARXNG_URL: "https://environment.example",
+        CACHE_TTL_MINUTES: "7",
+      },
+    );
+    assert.equal(configured.searxngUrl, "https://configured.example");
+    assert.equal(configured.documentCacheTtlSeconds, 90);
+
+    const ignoresInvalidLowerPriorityFallback = resolveConfig(
+      {
+        "pi-web-search": {
+          searxngUrl: "https://configured.example",
+          documentCacheTtlSeconds: 90,
+        },
+      },
+      {},
+      { CACHE_TTL_MINUTES: "invalid" },
+    );
+    assert.equal(
+      ignoresInvalidLowerPriorityFallback.documentCacheTtlSeconds,
+      90,
+    );
+  });
+
+  it("normalizes an ordered backend list", () => {
+    const config = resolveConfig(
+      {},
+      { "pi-web-search": { backends: [" SearXNG ", "DDGR"] } },
+      {},
+    );
+    assert.deepEqual(config.backends, ["searxng", "ddgr"]);
+  });
+
+  for (const [name, settings] of [
+    ["empty backend list", { backends: [] }],
+    ["unknown backend", { backends: ["other"] }],
+    ["duplicate backend", { backends: ["ddgr", "ddgr"] }],
+    ["non-finite number", { searchTimeoutMs: Number.POSITIVE_INFINITY }],
+    ["negative number", { searchTimeoutMs: -1 }],
+    ["unknown property", { surprise: true }],
+    [
+      "inconsistent defaults and caps",
+      { searchMaxResults: 11, searchMaxLimitResults: 10 },
+    ],
+  ] as const) {
+    it(`rejects ${name}`, () => {
+      assert.throws(
+        () => resolveConfig({}, { "pi-web-search": settings }, {}),
+        ConfigurationError,
+      );
+    });
+  }
+});

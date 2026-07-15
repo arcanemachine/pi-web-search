@@ -12,8 +12,11 @@
     ]
   },
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch"
+    "build": "tsc --noEmit",
+    "watch": "tsc --watch --noEmit",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md RESEARCH.md PLAN.md",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.49"
@@ -21,11 +24,13 @@
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.74.0",
     "@types/node": "^25.3.3",
+    "prettier": "^3.8.3",
+    "tsx": "^4.22.0",
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-ai": "*"
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": {
@@ -37,6 +42,7 @@
   },
   "files": [
     "index.ts",
+    "src",
     "README.md",
     "LICENSE.md"
   ]
