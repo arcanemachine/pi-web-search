@@ -4,15 +4,19 @@
 
 Commit when a task is completed.
 
-## Active research handoff (temporary)
+## Active planning handoff (temporary)
 
-Before planning or implementing the current web-search improvements, read `RESEARCH.md`. It records confirmed decisions, evidence, candidate architecture, and unresolved questions.
+Before implementing the current web-search improvements, read `RESEARCH.md` and `PLAN.md`. `RESEARCH.md` records the approved design baseline; `PLAN.md` is the executable plan and remains subject to user approval until its status says otherwise.
 
 Artifact lifecycle:
 
-1. During research, keep `RESEARCH.md` current.
-2. Once the user approves scope and decisions, create an executable `PLAN.md` that references `RESEARCH.md`.
+1. Keep `RESEARCH.md` aligned with approved decisions.
+2. Keep `PLAN.md` executable and current during implementation.
 3. After implementation and verification, remove `RESEARCH.md`, `PLAN.md`, and this temporary section before completing the work.
+
+## Deferred ideas
+
+`IDEAS.DEFERRED.md` is intentionally outside the active workflow. Do not read, raise, research, or plan anything from it unless the user explicitly asks to revisit deferred work.
 
 ## Pre-commit
 
