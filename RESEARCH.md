@@ -21,6 +21,7 @@ Lifecycle:
 - Most important `ddgr` finding: version 2.2 can emit `[]` with exit code `0` while reporting an HTTP failure on stderr, so an adapter must interpret all three channels together.
 - Recommended local extraction baseline: Node-only `linkedom` plus `node-html-markdown`, behind a replaceable extractor contract.
 - Recommended summary workflow: delegate the URL and objective to a subagent before fetching; do not hide LLM calls inside this extension.
+- The extension must enforce conservative search-query throttling and mildly guide agents away from unnecessary repeated searches.
 
 ## Context
 
@@ -28,7 +29,7 @@ The extension currently:
 
 - sends search requests directly to one SearXNG instance;
 - can mistake an upstream-engine failure for a legitimate empty result;
-- has no search timeout, retry policy, fallback, or cache;
+- has no search timeout, retry policy, fallback, cache, or outbound-query throttling;
 - strips HTML with regular expressions, which collapses many modern documentation pages into unusable lines;
 - returns empty output when URL grep finds no matches;
 - exposes little fetch, cache, or source provenance.
@@ -46,6 +47,8 @@ The immediate blocker is search reliability under SearXNG upstream rate limiting
 - Prefer a Node-only initial extraction path rather than adding a Python runtime dependency.
 - Keep Firecrawl out of the initial scope; its official Pi extension can coexist for heavier scraping needs.
 - Use a subagent workflow for page summarization rather than embedding model calls inside the web-search extension.
+- Enforce search-query rate limiting inside the extension so an agent cannot rapidly flood the configured search backend.
+- Add mild, professional tool guidance encouraging focused queries, reuse of existing results, and avoidance of unnecessary repeated searches; do not emit a routine nudge on every successful call.
 
 ## Recommended decisions requiring review
 
@@ -92,6 +95,21 @@ A persistent cache under `XDG_CACHE_HOME` could later allow separate subagent pr
 
 No database is needed initially. A database should be justified only if persistent indexing, cross-process concurrency, or large cache management becomes a demonstrated requirement.
 
+## Search request throttling research
+
+Prompt guidance is advisory and cannot prevent flooding by itself. The search service needs an enforced limiter before it dispatches a logical query to a backend. URL loads and targeted document extraction are separate operations and should not consume search-query capacity.
+
+Approved initial direction:
+
+- Check the search cache first and coalesce identical in-flight requests, so reuse does not consume limiter capacity.
+- Permit one outbound logical search to start every 10 seconds within each extension process. A primary-plus-fallback sequence remains one logical search, and each backend may still be attempted at most once.
+- When the interval has not elapsed, fail fast with a structured local `rate_limited` outcome, `retryable: true`, and `retryAfterMs`. Do not sleep inside the tool, automatically retry, or invoke a fallback to bypass the local guardrail.
+- Make the interval configurable, with 10 seconds as the default.
+- Do not store raw queries in limiter state. Only the last-dispatch timestamp is required.
+- Put the behavioral reminder in `search_web` prompt guidance rather than appending repetitive warnings to successful results. Candidate wording: “Use search_web conservatively: make focused queries, reuse relevant results, and avoid repeated or speculative searches when one query will suffice.”
+
+A limiter held in extension memory protects one Pi process only. Pi subagents use separate RPC processes, so several agents can collectively exceed that limit. Cross-process coordination is not required for the initial implementation. It may be added if a safe implementation is trivial, but must not expand the first scope with locking, stale-lock recovery, persistent state, or query-history storage.
+
 ## Candidate architecture
 
 Keep tool registration thin and move behavior into testable modules:
@@ -105,6 +123,7 @@ src/
   search/
     backend.ts
     ddgr.ts
+    limiter.ts
     searxng.ts
     service.ts
   documents/
@@ -330,6 +349,7 @@ WEB_SEARCH_BACKEND=searxng|ddgr
 WEB_SEARCH_FALLBACK=none|searxng|ddgr
 WEB_SEARCH_TIMEOUT_MS=10000
 WEB_SEARCH_CACHE_TTL_SECONDS=120
+WEB_SEARCH_MIN_SEARCH_INTERVAL_MS=10000
 ```
 
 Keep the existing page cache setting compatible while introducing clearer document-specific settings later.
@@ -348,6 +368,8 @@ Keep the existing page cache setting compatible while introducing clearer docume
 - A signaled SearXNG engine failure is not rendered as “No results found.”
 - Backend selection does not change the normalized result schema.
 - Queries containing quotes, shell metacharacters, or Unicode are passed safely.
+- A second logical search within the configured minimum interval produces a structured `rate_limited` outcome with `retryAfterMs` and does not dispatch or fall back.
+- Cache hits and callers sharing identical in-flight work do not consume additional limiter capacity.
 
 ## Item 03 (structured-search)
 
@@ -379,7 +401,14 @@ Return a compact structured object containing:
 - warnings
 - error data when applicable
 
-Search snippets are discovery aids, not citations. Tool guidance should tell the model to load or extract a result before citing a claim.
+Search snippets are discovery aids, not citations. Tool guidance should tell the model to load or extract a result before citing a claim. It should also mildly encourage focused, conservative query use without adding a repetitive warning to normal results.
+
+### Search throttling
+
+- Enforce the per-process minimum interval before backend dispatch, defaulting to 10 seconds.
+- Return the local limit source and `retryAfterMs` in the structured outcome so it cannot be confused with backend throttling.
+- Do not automatically retry, wait, queue a backlog, or use fallback to evade the local limit.
+- Keep cross-process enforcement out of the initial scope unless it is demonstrably trivial and does not introduce persistent coordination machinery.
 
 ### Search cache
 
@@ -512,6 +541,8 @@ Evaluate reliability before changing the default backend.
 - `ddgr` success, empty JSON, missing executable, non-zero exit, timeout, block-like stderr, and malformed output.
 - HTML documentation, article, malformed HTML, huge single-line HTML, redirect, plain text, Markdown, and JSON.
 - Dynamic-app shell with insufficient static content.
+- First search allowed, second search inside the minimum interval rejected with the correct `retryAfterMs`, search allowed at the interval boundary, cache hit, identical in-flight coalescing, and cancellation behavior.
+- Cross-process behavior only if coordination is included without expanding scope.
 
 ### Shadow query suite
 
@@ -556,8 +587,10 @@ Update `README.md` with:
 - backend selection;
 - external `ddgr` requirement and PATH check;
 - SearXNG configuration;
-- timeout/cache settings;
+- timeout, cache, and search-throttling settings;
 - stable statuses and error codes;
+- the distinction between extension-local and backend-reported rate limiting;
+- conservative-query prompt guidance and the scope of any cross-process guarantee;
 - extraction modes and output bounds;
 - privacy topology: direct `ddgr` queries expose the caller's network address and query to DuckDuckGo, while SearXNG mediates that connection but can observe the query itself.
 
