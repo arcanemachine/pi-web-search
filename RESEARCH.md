@@ -13,10 +13,10 @@ Lifecycle:
 ## Handoff snapshot
 
 - This handoff changes documentation only. No extension source, dependency, configuration, or runtime behavior has changed.
-- The future agent must read this file, review the seven unresolved decisions with the user, and obtain explicit approval before creating an implementation plan.
+- The future agent must read this file, review the eight unresolved decisions with the user, and obtain explicit approval before creating an implementation plan.
 - After approval, create `PLAN.md` with scoped steps, tests, rollout/rollback criteria, and a pointer back to this evidence.
 - Do not implement directly from the candidate workstreams below; they organize research rather than represent accepted scope.
-- Local research checkouts under `/workspace/tmp/_git/` are not project dependencies or tracked artifacts.
+- Local research checkouts under `/workspace/tmp/_git/` and ephemeral checkouts under `/tmp/` are not project dependencies or tracked artifacts.
 - Highest-priority problem: SearXNG upstream rate limiting can appear as an empty successful search.
 - Most important `ddgr` finding: version 2.2 can emit `[]` with exit code `0` while reporting an HTTP failure on stderr, so an adapter must interpret all three channels together.
 - Recommended local extraction baseline: Node-only `linkedom` plus `node-html-markdown`, behind a replaceable extractor contract.
@@ -56,6 +56,7 @@ The immediate blocker is search reliability under SearXNG upstream rate limiting
 5. Consider Defuddle later as an optional `readable` extraction mode, not as the only parser for technical documentation.
 6. Put essential structured data in model-visible tool `content` and duplicate the complete object in `details` for rendering and session inspection.
 7. Decide whether cross-process disk caching is worth its privacy, locking, and cleanup costs; subagents run as separate Pi RPC processes.
+8. Keep Crawl4AI out of the initial Node-only scope. If browser-backed extraction later needs a unified tool contract, evaluate it as an optional externally managed `DocumentBackend`; do not bundle or install its Python, browser, or service stack.
 
 ## Non-goals
 
@@ -220,6 +221,48 @@ The official `@firecrawl/pi-firecrawl` extension already exposes separate Pi too
 Firecrawl is useful for JavaScript rendering, blocked sites, PDFs, actions, proxy modes, and large crawl jobs. Its self-hosted stack is substantially heavier, involving Docker services, Redis queues, and Playwright components. Keep it as a companion extension rather than duplicating it in the initial local backend. Reconsider only if a unified tool contract becomes more valuable than keeping the integrations separate.
 
 Local checkout: `/workspace/tmp/_git/pi-firecrawl`.
+
+## Crawl4AI research
+
+Crawl4AI is a Python web crawler and extraction system rather than a lightweight HTML parser. The inspected snapshot was repository commit `7e801521428ee12509994d39151006f64055ebe3` (`v0.9.2`). The shallow research checkout under `/tmp/` is ephemeral and is not a dependency or tracked artifact.
+
+### Capabilities and interfaces
+
+- The package requires Python 3.10 or newer. Core dependencies include Playwright, Patchright, browser-stealth tooling, `lxml`, BeautifulSoup, SQLite support, NumPy, and a pinned LiteLLM fork. `crawl4ai-setup` installs browser and OS dependencies. This conflicts with the confirmed Node-first initial direction even when no LLM feature is used.
+- Browser-backed crawling supports JavaScript execution, wait conditions, sessions, deep crawling, screenshots, PDFs, redirects, response headers, and anti-bot/block detection. Results expose `success`, `error_message`, status, requested/redirected URL data, Markdown, HTML, media, links, and structured extraction output.
+- Deterministic use does not require an LLM. It provides raw and filtered Markdown, link citations, heuristic pruning, BM25 filtering, and CSS-, XPath-, or regex-based JSON extraction. LLM extraction and filtering are optional behaviors, although the LiteLLM fork remains a core installation dependency.
+- Integration surfaces include the Python API, the `crwl` CLI, and a self-hosted Docker HTTP/MCP server. The CLI accepts a URL as an argv element and can emit a full crawl-result JSON object or raw/filtered Markdown. The server exposes crawl, Markdown, HTML, screenshot, PDF, streaming, and job endpoints.
+- The Docker path is a service deployment, not a small library fallback. Its checked-in guide asks for at least 4 GB RAM, uses a browser pool and Redis-backed infrastructure, and recommends a 1 GB shared-memory allocation. The hosted cloud API was still described as closed beta in the inspected README.
+
+### Storage, privacy, and operational behavior
+
+Crawl4AI caching is persistent by default. The in-process implementation stores URL metadata in `~/.crawl4ai/crawl4ai.db` and content-addressed HTML, Markdown, screenshots, and other data under `~/.crawl4ai/`; it also stores logs, browser profiles, robots data, and feature-specific caches there. `CacheMode` supports enabled, disabled, read-only, write-only, and bypass modes, and `CRAWL4_AI_BASE_DIRECTORY` can relocate storage. An adapter would need to choose bypass/disabled mode or an isolated private directory explicitly rather than inherit persistent browsing history and unreviewed cleanup behavior.
+
+The multi-URL API offers bounded concurrency, streaming, memory-adaptive dispatch, page and batch timeouts, and optional rate-limit retries. Those retry defaults are not suitable evidence for changing this extension's separate decision not to retry rate-limited search queries. A Pi integration would still need to prove that aborting a subprocess or HTTP stream promptly closes browser work and releases server jobs.
+
+The local library keeps crawled data on the caller's machine unless optional LLM providers or other configured services are used. The cloud service has a different privacy topology: its published policy says submitted URLs/keywords, configuration, timestamps, job status, and result-object links are recorded, with results commonly retained for 30 days and operational logs commonly retained for 90 days.
+
+### Licensing, security, and maturity cautions
+
+Repository metadata declares Apache-2.0, but the checked-in `LICENSE` appends a separate prominent-attribution requirement. That extra text should be reviewed explicitly before bundling or redistributing Crawl4AI; the proposed external-only disposition avoids making it part of this package.
+
+The project is active and widely used, but its package classifier remains Beta and the checked-in documentation is inconsistent: some pages describe older Docker versions or call Docker experimental while the current release documents a hardened server. The Docker API also had recent critical RCE, SSRF, authentication, file-write, and XSS fixes. Any future service adapter should pin and fixture-test an exact version, require the secure-by-default `v0.9.0`-or-newer posture, use loopback or TLS plus authentication, and treat URLs and extracted content as untrusted.
+
+### Recommended disposition
+
+Do not add Crawl4AI to the initial implementation. It duplicates the ordinary static-page path with a much larger Python/browser footprint and would violate the user's preference to avoid Python cross-contamination. Keep the deterministic Node extractor for normal static pages and continue recommending Playwright when a page requires JavaScript.
+
+If a later unified `DocumentBackend` becomes valuable, Crawl4AI is a credible optional browser-backed backend for JavaScript-heavy pages, structured site-specific extraction, or multi-page crawling. Prefer an explicitly configured, externally managed Docker service for repeated use because it isolates dependencies and amortizes browser startup; a PATH-resolved `crwl` adapter is possible for occasional local use but must not install Crawl4AI, must isolate or disable its persistent cache, and must interpret the full JSON outcome rather than Markdown alone. This occupies the same architectural tier as Firecrawl, not the raw-HTML `DocumentExtractor` tier. No official Pi extension was found during this investigation, unlike Firecrawl.
+
+Primary sources:
+
+- Repository and README: <https://github.com/unclecode/crawl4ai>
+- Package metadata and dependencies: <https://github.com/unclecode/crawl4ai/blob/main/pyproject.toml>
+- Markdown generation: <https://docs.crawl4ai.com/core/markdown-generation/>
+- Deterministic extraction: <https://docs.crawl4ai.com/extraction/no-llm-strategies/>
+- Cache modes: <https://docs.crawl4ai.com/core/cache-modes/>
+- Self-hosting: <https://docs.crawl4ai.com/core/self-hosting/>
+- Docker security migration: <https://github.com/unclecode/crawl4ai/blob/main/deploy/docker/MIGRATION.md>
 
 ## Candidate workstreams
 
@@ -544,3 +587,4 @@ Also format all newly added TypeScript and Markdown files, run fixture tests, ex
 - Trafilatura provides CLI main-content extraction and Markdown output but requires a separate Python installation: <https://trafilatura.readthedocs.io/en/latest/usage-cli.html>. Local research checkout: `/workspace/tmp/_git/trafilatura`.
 - Firecrawl's official Pi extension is <https://github.com/firecrawl/pi-firecrawl>. Local research checkout: `/workspace/tmp/_git/pi-firecrawl`.
 - Firecrawl is primarily AGPL-3.0, while its SDKs and some UI components are MIT-licensed: <https://github.com/firecrawl/firecrawl>.
+- Crawl4AI was inspected at commit `7e801521428ee12509994d39151006f64055ebe3` (`v0.9.2`): <https://github.com/unclecode/crawl4ai>. Its temporary checkout was created under `/tmp/` and is not expected to persist.
