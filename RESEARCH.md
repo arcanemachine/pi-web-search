@@ -1,6 +1,6 @@
 # Web Search Improvements Research
 
-Status: Active pre-work; design direction approved, with final plan details still subject to user review
+Status: Approved implementation research baseline
 
 This document is the active evidence and decision baseline for the current implementation. Read it with `PLAN.md`. Do not read `IDEAS.DEFERRED.md` unless the user explicitly asks to revisit deferred work.
 

@@ -1,6 +1,6 @@
 # Web Search Improvements Plan
 
-Status: Approved; executable after the pre-work commit
+Status: Approved and executable
 
 Reference: `RESEARCH.md` is the approved evidence and design baseline. Do not read or incorporate `IDEAS.DEFERRED.md` unless the user explicitly asks to revisit deferred work.
 
@@ -8,9 +8,9 @@ Reference: `RESEARCH.md` is the approved evidence and design baseline. Do not re
 
 Deliver a backend-ordered, failure-aware, rate-limited web search tool plus bounded shared static-document reading and matching tools. Completion requires verified runtime behavior in Pi, not only passing static checks.
 
-## Approved pre-work gate
+## Approved scope
 
-The public schemas, configurable output budgets, and focused `ddgr` evaluation gate are approved. Commit these planning artifacts in the child package first and then commit the superproject submodule pointer. Do not push.
+The public schemas, configurable output budgets, and focused `ddgr` evaluation gate are approved. Do not push changes unless asked.
 
 ## Public interface
 
@@ -308,9 +308,8 @@ Acceptance:
 
 ## Commit sequence
 
-1. Approved pre-work documents: commit the child package, then the superproject pointer.
-2. Phase 0 and phase 1 search implementation after their tests and focused evaluation pass.
-3. Phase 2 document implementation after its fixtures and local integration tests pass.
-4. Documentation, verified runtime behavior, and temporary-artifact cleanup.
+1. Phase 0 and phase 1 search implementation after their tests and focused evaluation pass.
+2. Phase 2 document implementation after its fixtures and local integration tests pass.
+3. Documentation, verified runtime behavior, and temporary-artifact cleanup.
 
 Use child-first and superproject-pointer-second order for every completed child checkpoint. Do not push unless asked.
