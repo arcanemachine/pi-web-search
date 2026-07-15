@@ -61,6 +61,30 @@ describe("public request schemas", () => {
     );
   });
 
+  it("rejects blank document selectors and oversized literal queries", () => {
+    assert.equal(
+      validateReadUrlContentRequest({
+        url: "https://example.com",
+        selector: "   ",
+      })?.code,
+      "invalid_request",
+    );
+    assert.equal(
+      validateReadUrlContentRequest({
+        url: "https://example.com",
+        selector: "[",
+      })?.code,
+      "invalid_request",
+    );
+    assert.equal(
+      validateGrepUrlContentRequest({
+        url: "https://example.com",
+        query: "x".repeat(10_001),
+      })?.code,
+      "invalid_request",
+    );
+  });
+
   it("rejects unsupported cursor combinations", () => {
     assert.equal(
       validateReadUrlContentRequest({

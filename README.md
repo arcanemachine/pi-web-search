@@ -1,6 +1,6 @@
 # pi-web-search
 
-Bounded web search and URL content matching for Pi.
+Bounded web search and static-document reading/matching for Pi.
 
 ## Usage
 
@@ -8,7 +8,11 @@ Bounded web search and URL content matching for Pi.
 
 `search_web` tries the configured backend order (default: `ddgr`, then SearXNG) and falls through only after an explicit operational error. Legitimate `no_results` and local rate limiting do not trigger fallback.
 
-**Grep URL content:** `url: "https://url"`, `query: "search term"`.
+**Read URL content:** `url: "https://url"`, with optional `mode`, `selector`, `maxChars`, `cursor`, and `forceRefresh`.
+
+**Grep URL content:** `url: "https://url"`, `query: "literal text"`, with optional context, match/character limits, case sensitivity, selector, cursor, and refresh controls.
+
+Both document tools use the same bounded normalized snapshots. Cursors continue against the exact cached snapshot and return `cursor_expired` instead of silently refetching changed content. Static HTML is converted to Markdown; plain text, Markdown, and JSON use native normalization.
 
 ## Requirements
 

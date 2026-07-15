@@ -2,7 +2,7 @@
 
 Status: Approved and executable
 
-Implementation progress: Phase 0 and Phase 1 are implemented and verified with package formatting, strict typecheck/build, 47 Node tests, package dry-run inspection, cancellation/registration smoke tests, and a no-model-call Pi RPC load. The non-persistent focused gate passed for `ddgr`: 6/6 categories succeeded, expected authoritative domains appeared within rank 3 for 6/6, and no malformed fields or obvious-spam heuristic hits appeared. The configured SearXNG produced evidence-backed `rate_limited` errors for 6/6 rather than false emptiness, so the approved default remains `ddgr,searxng`. Phase 2 has not started.
+Implementation progress: Phase 0, Phase 1, and Phase 2 are implemented and verified with package formatting, strict typecheck/build, 68 Node tests, package dry-run inspection, deterministic local HTTP integration fixtures, cancellation/registration smoke tests, root filtered validation, and no-model-call Pi RPC loads. The non-persistent focused gate passed for `ddgr`: 6/6 categories succeeded, expected authoritative domains appeared within rank 3 for 6/6, and no malformed fields or obvious-spam heuristic hits appeared. The configured SearXNG produced evidence-backed `rate_limited` errors for 6/6 rather than false emptiness, so the approved default remains `ddgr,searxng`. Phase 3 documentation, final running-Pi behavior verification, and temporary-artifact cleanup remain.
 
 Reference: `RESEARCH.md` is the approved evidence and design baseline. Do not read or incorporate `IDEAS.DEFERRED.md` unless the user explicitly asks to revisit deferred work.
 

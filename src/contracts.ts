@@ -60,6 +60,13 @@ export interface Provenance {
   durationMs?: number;
   cache?: CacheState;
   contentHash?: string;
+  statusCode?: number;
+  contentType?: string;
+  downloadedBytes?: number;
+  normalizedBytes?: number;
+  etag?: string;
+  lastModified?: string;
+  extractor?: string;
 }
 
 export interface BoundState {
@@ -85,21 +92,27 @@ export interface SearchOutcomeData {
 
 export interface ReadOutcomeData {
   content: string;
+  title?: string;
   cursor?: string;
   nextCursor?: string;
 }
 
 export interface GrepMatch {
   line: number;
+  endLine: number;
   startOffset: number;
   endOffset: number;
+  quoteStartOffset: number;
+  quoteEndOffset: number;
   quote: string;
+  matchCount: number;
   heading?: string;
 }
 
 export interface GrepOutcomeData {
   query: string;
   matches: GrepMatch[];
+  totalMatches: number;
   cursor?: string;
   nextCursor?: string;
 }

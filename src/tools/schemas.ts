@@ -1,5 +1,6 @@
 import { Type, type Static, type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { parseHTML } from "linkedom";
 import {
   operationalError,
   type OperationalError,
@@ -53,28 +54,97 @@ export const SearchWebParams = Type.Object(
 
 export const ReadUrlContentParams = Type.Object(
   {
-    url: Type.String({ minLength: 1, maxLength: 2_048 }),
-    mode: Type.Optional(StringEnum(["main", "full"] as const)),
-    selector: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
-    maxChars: Type.Optional(Type.Integer({ minimum: 1 })),
-    cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 2_048 })),
-    forceRefresh: Type.Optional(Type.Boolean()),
+    url: Type.String({
+      minLength: 1,
+      maxLength: 2_048,
+      description: "Absolute HTTP(S) URL without embedded credentials",
+    }),
+    mode: Type.Optional(
+      Type.String({
+        enum: ["main", "full"],
+        description: "Extract main content (default) or the full document body",
+      }),
+    ),
+    selector: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 500,
+        description: "Optional CSS selector overriding the content root",
+      }),
+    ),
+    maxChars: Type.Optional(
+      Type.Integer({
+        minimum: 1,
+        description: "Maximum normalized characters; clamped to the hard cap",
+      }),
+    ),
+    cursor: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 2_048,
+        description: "Opaque cursor continuing the exact cached snapshot",
+      }),
+    ),
+    forceRefresh: Type.Optional(
+      Type.Boolean({
+        description: "Bypass a completed snapshot cache entry",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
 
 export const GrepUrlContentParams = Type.Object(
   {
-    url: Type.String({ minLength: 1, maxLength: 2_048 }),
-    query: Type.String({ minLength: 1, maxLength: 500 }),
-    beforeLines: Type.Optional(Type.Integer({ minimum: 0 })),
-    afterLines: Type.Optional(Type.Integer({ minimum: 0 })),
-    maxMatches: Type.Optional(Type.Integer({ minimum: 1 })),
-    maxChars: Type.Optional(Type.Integer({ minimum: 1 })),
-    caseSensitive: Type.Optional(Type.Boolean()),
-    selector: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
-    cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 2_048 })),
-    forceRefresh: Type.Optional(Type.Boolean()),
+    url: Type.String({
+      minLength: 1,
+      maxLength: 2_048,
+      description: "Absolute HTTP(S) URL without embedded credentials",
+    }),
+    query: Type.String({
+      minLength: 1,
+      description: "Literal text to find in the normalized snapshot",
+    }),
+    beforeLines: Type.Optional(
+      Type.Integer({ minimum: 0, description: "Context lines before a match" }),
+    ),
+    afterLines: Type.Optional(
+      Type.Integer({ minimum: 0, description: "Context lines after a match" }),
+    ),
+    maxMatches: Type.Optional(
+      Type.Integer({
+        minimum: 1,
+        description: "Maximum matches; clamped to the configured hard cap",
+      }),
+    ),
+    maxChars: Type.Optional(
+      Type.Integer({
+        minimum: 1,
+        description: "Maximum quote characters; clamped to the hard cap",
+      }),
+    ),
+    caseSensitive: Type.Optional(
+      Type.Boolean({ description: "Use case-sensitive literal matching" }),
+    ),
+    selector: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 500,
+        description: "Optional CSS selector overriding the content root",
+      }),
+    ),
+    cursor: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 2_048,
+        description: "Opaque cursor continuing the exact cached match set",
+      }),
+    ),
+    forceRefresh: Type.Optional(
+      Type.Boolean({
+        description: "Bypass a completed snapshot cache entry",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -94,6 +164,19 @@ function schemaError(
 ): OperationalError | undefined {
   if (Value.Check(schema, value)) return undefined;
   return invalid(`${operation} arguments do not match the public schema`);
+}
+
+function validateSelector(
+  value: string | undefined,
+): OperationalError | undefined {
+  if (value === undefined) return undefined;
+  if (!value.trim()) return invalid("selector must not be blank");
+  try {
+    parseHTML("<html><body></body></html>").document.querySelector(value);
+    return undefined;
+  } catch {
+    return invalid("selector must be a valid CSS selector");
+  }
 }
 
 function validateHttpUrl(value: string): OperationalError | undefined {
@@ -137,6 +220,8 @@ export function validateReadUrlContentRequest(
   const request = value as ReadUrlContentParams;
   const urlError = validateHttpUrl(request.url);
   if (urlError) return urlError;
+  const selectorError = validateSelector(request.selector);
+  if (selectorError) return selectorError;
   if (request.cursor && request.forceRefresh) {
     return invalid("cursor cannot be combined with forceRefresh");
   }
@@ -151,7 +236,13 @@ export function validateGrepUrlContentRequest(
   const request = value as GrepUrlContentParams;
   const urlError = validateHttpUrl(request.url);
   if (urlError) return urlError;
-  if (!request.query.trim()) return invalid("query must not be blank");
+  const query = request.query.trim();
+  if (!query) return invalid("query must not be blank");
+  if ([...query].length > 10_000) {
+    return invalid("query must not exceed 10000 characters after trimming");
+  }
+  const selectorError = validateSelector(request.selector);
+  if (selectorError) return selectorError;
   if (request.cursor && request.forceRefresh) {
     return invalid("cursor cannot be combined with forceRefresh");
   }

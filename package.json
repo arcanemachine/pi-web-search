@@ -1,7 +1,7 @@
 {
   "name": "@arcanemachine/pi-web-search",
   "version": "1.0.0",
-  "description": "Web search and URL content grep extension for pi",
+  "description": "Bounded web search and static document tools for pi",
   "type": "module",
   "keywords": [
     "pi-package"
@@ -19,7 +19,9 @@
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.49"
+    "@sinclair/typebox": "^0.34.49",
+    "linkedom": "^0.18.13",
+    "node-html-markdown": "^2.0.0"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.74.0",
