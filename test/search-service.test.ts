@@ -121,12 +121,39 @@ describe("ordered search service", () => {
     assert.equal(searxng.calls, 0);
   });
 
+  it("allows a configured burst before returning local rate limiting", async () => {
+    const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
+    const service = new SearchService(
+      config({
+        backends: ["ddgr"],
+        searchRateLimitPerMinute: 10,
+        searchRateLimitBurst: 3,
+      }),
+      backendMap(ddgr),
+      () => 1_000,
+    );
+
+    assert.equal((await service.search(request)).status, "ok");
+    assert.equal(
+      (await service.search({ ...request, query: "second" })).status,
+      "ok",
+    );
+    assert.equal(
+      (await service.search({ ...request, query: "third" })).status,
+      "ok",
+    );
+    const blocked = await service.search({ ...request, query: "fourth" });
+    assert.equal(blocked.error?.code, "rate_limited");
+    assert.equal(blocked.error?.retryAfterMs, 6_000);
+    assert.equal(ddgr.calls, 3);
+  });
+
   it("returns immediate local rate limiting without backend fallback", async () => {
     let now = 1_000;
     const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
     const searxng = new FakeBackend("searxng", async () => ok("searxng"));
     const service = new SearchService(
-      config({ searchMinIntervalMs: 10_000 }),
+      config({ searchRateLimitPerMinute: 10, searchRateLimitBurst: 1 }),
       backendMap(ddgr, searxng),
       () => now,
     );
@@ -135,7 +162,11 @@ describe("ordered search service", () => {
     now += 2_000;
     const blocked = await service.search({ ...request, query: "different" });
     assert.equal(blocked.error?.code, "rate_limited");
-    assert.equal(blocked.error?.retryAfterMs, 8_000);
+    assert.match(
+      blocked.error?.message ?? "",
+      /Local process search token bucket exhausted \(10\/minute, burst 1\)/,
+    );
+    assert.equal(blocked.error?.retryAfterMs, 4_000);
     assert.equal(ddgr.calls, 1);
     assert.equal(searxng.calls, 0);
   });
@@ -182,7 +213,11 @@ describe("ordered search service", () => {
   it("does not let forceRefresh bypass the limiter", async () => {
     const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
     const service = new SearchService(
-      config({ backends: ["ddgr"] }),
+      config({
+        backends: ["ddgr"],
+        searchRateLimitPerMinute: 10,
+        searchRateLimitBurst: 1,
+      }),
       backendMap(ddgr),
       () => 1_000,
     );
@@ -193,17 +228,21 @@ describe("ordered search service", () => {
     assert.equal(ddgr.calls, 1);
   });
 
-  it("allows a new dispatch exactly at the interval boundary", async () => {
+  it("allows a new dispatch when the next token has fully refilled", async () => {
     let now = 1_000;
     const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
     const service = new SearchService(
-      config({ backends: ["ddgr"], searchMinIntervalMs: 10_000 }),
+      config({
+        backends: ["ddgr"],
+        searchRateLimitPerMinute: 10,
+        searchRateLimitBurst: 1,
+      }),
       backendMap(ddgr),
       () => now,
     );
 
     await service.search(request);
-    now += 10_000;
+    now += 6_000;
     const second = await service.search({ ...request, query: "different" });
     assert.equal(second.status, "ok");
     assert.equal(ddgr.calls, 2);
@@ -213,13 +252,17 @@ describe("ordered search service", () => {
     let now = 1_000;
     const ddgr = new FakeBackend("ddgr", async () => failure("ddgr"));
     const service = new SearchService(
-      config({ backends: ["ddgr"], searchMinIntervalMs: 10_000 }),
+      config({
+        backends: ["ddgr"],
+        searchRateLimitPerMinute: 10,
+        searchRateLimitBurst: 1,
+      }),
       backendMap(ddgr),
       () => now,
     );
 
     assert.equal((await service.search(request)).status, "error");
-    now += 10_000;
+    now += 6_000;
     assert.equal((await service.search(request)).status, "error");
     assert.equal(ddgr.calls, 2);
   });
@@ -228,13 +271,17 @@ describe("ordered search service", () => {
     let now = 1_000;
     const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
     const service = new SearchService(
-      config({ backends: ["ddgr"], searchMinIntervalMs: 10_000 }),
+      config({
+        backends: ["ddgr"],
+        searchRateLimitPerMinute: 10,
+        searchRateLimitBurst: 1,
+      }),
       backendMap(ddgr),
       () => now,
     );
 
     await service.search(request);
-    now += 10_000;
+    now += 6_000;
     const refreshed = await service.search({ ...request, forceRefresh: true });
     assert.equal(refreshed.status, "ok");
     assert.equal(refreshed.provenance?.cache?.status, "miss");

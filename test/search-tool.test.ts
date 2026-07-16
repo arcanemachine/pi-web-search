@@ -7,6 +7,7 @@ import { createSearchToolController } from "../src/tools/search-web.js";
 
 interface RegisteredTool {
   name: string;
+  promptGuidelines?: string[];
   execute(
     toolCallId: string,
     params: Record<string, unknown>,
@@ -59,6 +60,10 @@ describe("search_web tool", () => {
     controller.register();
     const tool = tools.find((candidate) => candidate.name === "search_web");
     assert.ok(tool);
+    assert.match(
+      tool.promptGuidelines?.join("\n") ?? "",
+      /10 logical searches\/minute, burst 3.*error\.retryAfterMs/,
+    );
 
     const result = await tool.execute(
       "call",

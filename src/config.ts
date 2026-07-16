@@ -12,7 +12,8 @@ export interface PiWebSearchConfig {
   searxngUrl: string;
   searchTimeoutMs: number;
   searchCacheTtlSeconds: number;
-  searchMinIntervalMs: number;
+  searchRateLimitPerMinute: number;
+  searchRateLimitBurst: number;
   searchMaxResults: number;
   searchMaxLimitResults: number;
   searchMaxQueryChars: number;
@@ -43,7 +44,8 @@ export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
   searxngUrl: "http://127.0.0.1:8080",
   searchTimeoutMs: 10_000,
   searchCacheTtlSeconds: 120,
-  searchMinIntervalMs: 10_000,
+  searchRateLimitPerMinute: 10,
+  searchRateLimitBurst: 3,
   searchMaxResults: 5,
   searchMaxLimitResults: 10,
   searchMaxQueryChars: 500,
@@ -72,7 +74,8 @@ export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
 const NUMERIC_KEYS = [
   "searchTimeoutMs",
   "searchCacheTtlSeconds",
-  "searchMinIntervalMs",
+  "searchRateLimitPerMinute",
+  "searchRateLimitBurst",
   "searchMaxResults",
   "searchMaxLimitResults",
   "searchMaxQueryChars",
@@ -103,7 +106,8 @@ type NumericKey = (typeof NUMERIC_KEYS)[number];
 const MAXIMUMS: Record<NumericKey, number> = {
   searchTimeoutMs: 120_000,
   searchCacheTtlSeconds: 86_400,
-  searchMinIntervalMs: 3_600_000,
+  searchRateLimitPerMinute: 600,
+  searchRateLimitBurst: 100,
   searchMaxResults: 25,
   searchMaxLimitResults: 25,
   searchMaxQueryChars: 500,

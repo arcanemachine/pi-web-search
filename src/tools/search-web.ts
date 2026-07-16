@@ -199,6 +199,7 @@ export function createSearchToolController(
           "Search configured web backends conservatively with bounded structured results and provenance.",
         promptGuidelines: [
           "Use search_web conservatively: prefer one precise query, inspect the result, then refine only when necessary.",
+          `search_web uses a process-local token bucket (${effective.searchRateLimitPerMinute} logical searches/minute, burst ${effective.searchRateLimitBurst}); after a rate_limited result, do not retry before error.retryAfterMs.`,
           "Treat search_web snippets as discovery aids; read the source before citing it.",
           "When available, prefer a subagent type suited to web research for broad, multi-page, or context-heavy investigation.",
         ],

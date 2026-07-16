@@ -75,12 +75,24 @@ describe("pi-web-search configuration", () => {
     assert.deepEqual(config.backends, ["searxng", "ddgr"]);
   });
 
+  it("configures the token-bucket rate and burst independently", () => {
+    const config = resolveConfig(
+      { "pi-web-search": { searchRateLimitPerMinute: 20 } },
+      { "pi-web-search": { searchRateLimitBurst: 4 } },
+      {},
+    );
+    assert.equal(config.searchRateLimitPerMinute, 20);
+    assert.equal(config.searchRateLimitBurst, 4);
+  });
+
   for (const [name, settings] of [
     ["empty backend list", { backends: [] }],
     ["unknown backend", { backends: ["other"] }],
     ["duplicate backend", { backends: ["ddgr", "ddgr"] }],
     ["non-finite number", { searchTimeoutMs: Number.POSITIVE_INFINITY }],
     ["negative number", { searchTimeoutMs: -1 }],
+    ["zero rate limit", { searchRateLimitPerMinute: 0 }],
+    ["excessive burst", { searchRateLimitBurst: 101 }],
     ["unknown property", { surprise: true }],
     [
       "inconsistent defaults and caps",

@@ -81,7 +81,8 @@ Set a `pi-web-search` object in global `~/.pi/agent/settings.json` or project `.
     "searxngUrl": "http://127.0.0.1:8080",
     "searchTimeoutMs": 10000,
     "searchCacheTtlSeconds": 120,
-    "searchMinIntervalMs": 10000,
+    "searchRateLimitPerMinute": 10,
+    "searchRateLimitBurst": 3,
     "searchMaxResults": 5,
     "searchMaxLimitResults": 10,
     "searchMaxQueryChars": 500,
@@ -115,7 +116,7 @@ The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties config
 
 ## Guardrails and outcomes
 
-- Search permits one process-local logical outbound search every 10 seconds by default. Cache hits and identical in-flight callers are exempt. Pi subagents use separate processes and therefore separate limiters.
+- Search uses a process-local token bucket with a sustained default rate of 10 logical outbound searches per minute and a burst capacity of 3. Tokens refill continuously, so this is an average rate rather than a strict rolling-window limit. Cache hits and identical in-flight callers are exempt. Pi subagents use separate processes and therefore separate buckets.
 - Search and document caches are process-local TTL/LRU caches bounded by entry count and bytes. Expected operational errors are not cached.
 - Document fetches accept HTTP(S) only, reject embedded credentials, follow at most five redirects, stream at most 5 MiB by default, and enforce timeout/cancellation.
 - Normalized snapshots default to a 2 MiB configured byte cap and always enforce a 50,000-line internal safety cap. Incomplete snapshots carry explicit warnings.

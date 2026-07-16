@@ -54,7 +54,11 @@ export class SearchService {
       config.searchCacheMaxBytes,
       now,
     );
-    this.limiter = new SearchLimiter(config.searchMinIntervalMs, now);
+    this.limiter = new SearchLimiter(
+      config.searchRateLimitPerMinute,
+      config.searchRateLimitBurst,
+      now,
+    );
   }
 
   async search(
@@ -75,10 +79,11 @@ export class SearchService {
     const decision = this.limiter.acquire();
     if (!decision.allowed) {
       const retryAfterMs =
-        decision.retryAfterMs ?? this.config.searchMinIntervalMs;
+        decision.retryAfterMs ??
+        Math.ceil(60_000 / this.config.searchRateLimitPerMinute);
       const error = operationalError(
         "rate_limited",
-        `Search is locally rate limited; retry after ${retryAfterMs}ms`,
+        `Local process search token bucket exhausted (${this.config.searchRateLimitPerMinute}/minute, burst ${this.config.searchRateLimitBurst}); retry after ${retryAfterMs}ms`,
         true,
         retryAfterMs,
       );
