@@ -1,6 +1,6 @@
 import { Type, type Static, type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { parseHTML } from "linkedom";
+import { JSDOM } from "jsdom";
 import {
   operationalError,
   type OperationalError,
@@ -172,7 +172,9 @@ function validateSelector(
   if (value === undefined) return undefined;
   if (!value.trim()) return invalid("selector must not be blank");
   try {
-    parseHTML("<html><body></body></html>").document.querySelector(value);
+    new JSDOM("<html><body></body></html>").window.document.querySelector(
+      value,
+    );
     return undefined;
   } catch {
     return invalid("selector must be a valid CSS selector");

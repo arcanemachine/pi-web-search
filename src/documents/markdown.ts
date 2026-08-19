@@ -1,5 +1,6 @@
+import { Readability } from "@mozilla/readability";
+import { JSDOM, VirtualConsole } from "jsdom";
 import { NodeHtmlMarkdown } from "node-html-markdown";
-import { parseHTML } from "linkedom";
 import { truncateChars } from "../bounds.js";
 import {
   operationalError,
@@ -26,6 +27,15 @@ const REMOVED_ELEMENTS = [
   "aside",
 ].join(",");
 
+const DIRECT_HTML_EXTRACTOR = "html:jsdom+node-html-markdown@2";
+const READABILITY_HTML_EXTRACTOR =
+  "html:jsdom+readability+node-html-markdown@2";
+
+type SelectedRoot = {
+  root: Element;
+  title?: string;
+};
+
 export type NormalizeDocumentResult =
   | { value: NormalizedDocument; error?: never }
   | { value?: never; error: OperationalError };
@@ -40,6 +50,29 @@ function normalizeText(value: string): string {
 
 function mimeType(contentType: string): string {
   return contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+}
+
+function createHtmlDocument(body: string, finalUrl: string): Document {
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.on("jsdomError", () => undefined);
+  return new JSDOM(body, { url: finalUrl, virtualConsole }).window.document;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function removeNonContentElements(document: Document): void {
+  for (const element of Array.from(
+    document.querySelectorAll(REMOVED_ELEMENTS),
+  )) {
+    element.remove();
+  }
 }
 
 function absolutizeLinks(root: Element, finalUrl: string): void {
@@ -65,6 +98,40 @@ function absolutizeLinks(root: Element, finalUrl: string): void {
   }
 }
 
+function readabilitySelection(
+  document: Document,
+  finalUrl: string,
+): SelectedRoot | null {
+  try {
+    const source =
+      document.documentElement?.outerHTML ?? document.body?.outerHTML ?? "";
+    const readabilityDocument = createHtmlDocument(source, finalUrl);
+    const article = new Readability(readabilityDocument).parse();
+    let content =
+      typeof article?.content === "string" ? article.content.trim() : "";
+    if (!content) return null;
+
+    const title = normalizeText(article?.title ?? "");
+    const textContent = normalizeText(article?.textContent ?? "");
+    if (title && !textContent.includes(title)) {
+      content = `<h1>${escapeHtml(title)}</h1>${content}`;
+    }
+
+    const extractedDocument = createHtmlDocument(
+      `<html><body>${content}</body></html>`,
+      finalUrl,
+    );
+    removeNonContentElements(extractedDocument);
+    const root =
+      extractedDocument.body ?? extractedDocument.documentElement ?? null;
+    if (!root || !normalizeText(root.textContent ?? "")) return null;
+
+    return { root, ...(title ? { title } : {}) };
+  } catch {
+    return null;
+  }
+}
+
 function htmlDocument(
   body: string,
   finalUrl: string,
@@ -73,7 +140,7 @@ function htmlDocument(
 ): NormalizeDocumentResult {
   let document: Document;
   try {
-    document = parseHTML(body).document;
+    document = createHtmlDocument(body, finalUrl);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -93,17 +160,17 @@ function htmlDocument(
     ),
   );
 
-  for (const element of Array.from(
-    document.querySelectorAll(REMOVED_ELEMENTS),
-  )) {
-    element.remove();
-  }
+  removeNonContentElements(document);
   const bodyTextLength = [...normalizeText(document.body?.textContent ?? "")]
     .length;
 
-  let root: Element | null = null;
+  let selected: SelectedRoot | null = null;
   const warnings: Diagnostic[] = [];
+  let usedMainFallback = false;
+  let usedReadability = false;
+
   if (selector) {
+    let root: Element | null;
     try {
       root = document.querySelector(selector);
     } catch {
@@ -124,25 +191,35 @@ function htmlDocument(
         ),
       };
     }
+    selected = { root };
   } else if (mode === "full") {
-    root = document.body ?? document.documentElement;
+    const root = document.body ?? document.documentElement;
+    if (root) selected = { root };
   } else {
-    root =
+    const semanticRoot =
       document.querySelector("main") ??
       document.querySelector('[role="main"]') ??
-      document.querySelector("article") ??
-      document.body ??
-      document.documentElement;
-    if (root === document.body || root === document.documentElement) {
-      warnings.push({
-        code: "main_content_fallback",
-        message: "No main/article root was found; extracted the document body",
-        source: "document",
-      });
+      document.querySelector("article");
+    if (semanticRoot) {
+      selected = { root: semanticRoot };
+    } else if (document.querySelector("section section")) {
+      const root = document.body ?? document.documentElement;
+      if (root) selected = { root };
+      usedMainFallback = true;
+    } else {
+      const readability = readabilitySelection(document, finalUrl);
+      if (readability) {
+        selected = readability;
+        usedReadability = true;
+      } else {
+        const root = document.body ?? document.documentElement;
+        if (root) selected = { root };
+        usedMainFallback = true;
+      }
     }
   }
 
-  if (!root) {
+  if (!selected) {
     return {
       error: operationalError(
         "parse_failed",
@@ -152,11 +229,19 @@ function htmlDocument(
     };
   }
 
-  absolutizeLinks(root, finalUrl);
+  if (usedMainFallback) {
+    warnings.push({
+      code: "main_content_fallback",
+      message: "No main/article root was found; extracted the document body",
+      source: "document",
+    });
+  }
+
+  absolutizeLinks(selected.root, finalUrl);
   let content: string;
   try {
     content = normalizeText(
-      NodeHtmlMarkdown.translate(root.outerHTML, {
+      NodeHtmlMarkdown.translate(selected.root.outerHTML, {
         codeBlockStyle: "fenced",
         bulletMarker: "-",
         keepDataImages: false,
@@ -176,8 +261,8 @@ function htmlDocument(
     };
   }
 
-  if (!content && normalizeText(root.textContent ?? "")) {
-    content = normalizeText(root.textContent ?? "");
+  if (!content && normalizeText(selected.root.textContent ?? "")) {
+    content = normalizeText(selected.root.textContent ?? "");
     warnings.push({
       code: "markdown_fallback",
       message:
@@ -194,11 +279,16 @@ function htmlDocument(
     });
   }
 
+  const selectedTitle = selected.title ?? title;
   return {
     value: {
       content,
-      ...(title ? { title: truncateChars(title, 300).value } : {}),
-      extractor: "html:linkedom+node-html-markdown@1",
+      ...(selectedTitle
+        ? { title: truncateChars(selectedTitle, 300).value }
+        : {}),
+      extractor: usedReadability
+        ? READABILITY_HTML_EXTRACTOR
+        : DIRECT_HTML_EXTRACTOR,
       warnings,
     },
   };
