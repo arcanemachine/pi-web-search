@@ -92,6 +92,22 @@ describe("ddgr backend", () => {
     assert.equal(failure.error?.code, "rate_limited");
   });
 
+  it("classifies ddgr's transient HTTP 202 blocking response", async () => {
+    const backend = new DdgrBackend(async (_command, args) =>
+      args[0] === "--version"
+        ? result({ stdout: "2.2" })
+        : result({ stdout: "[]", stderr: "[ERROR] HTTP Error 202: Accepted" }),
+    );
+    const outcome = await backend.search(request, { timeoutMs: 1_000 });
+    assert.equal(outcome.status, "error");
+    assert.equal(outcome.error?.code, "blocked");
+    assert.equal(outcome.error?.retryable, true);
+    assert.equal(
+      outcome.error?.message,
+      "ddgr received DuckDuckGo's transient HTTP 202 blocking response",
+    );
+  });
+
   it("returns friendly missing-PATH guidance", async () => {
     const backend = new DdgrBackend(async () => {
       throw new Error("spawn ddgr ENOENT");

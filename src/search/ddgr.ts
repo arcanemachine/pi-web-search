@@ -53,6 +53,13 @@ function missingError(): OperationalError {
 
 function classifyStderr(stderr: string): OperationalError | undefined {
   const normalized = stderr.toLowerCase();
+  if (/\bhttp error 202:\s*accepted\b/.test(normalized)) {
+    return operationalError(
+      "blocked",
+      "ddgr received DuckDuckGo's transient HTTP 202 blocking response",
+      true,
+    );
+  }
   if (/rate[ -]?limit|too many requests|\b429\b/.test(normalized)) {
     return operationalError(
       "rate_limited",

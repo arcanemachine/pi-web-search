@@ -93,6 +93,44 @@ function diagnosticsError(diagnostics: Diagnostic[]): OperationalError {
   );
 }
 
+function safeErrorCode(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  try {
+    const code = (value as { code?: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function fetchFailureMessage(error: unknown): string {
+  let code = safeErrorCode(error);
+  if (code === undefined && typeof error === "object" && error !== null) {
+    let cause: unknown;
+    try {
+      cause = (error as { cause?: unknown }).cause;
+    } catch {
+      cause = undefined;
+    }
+    code = safeErrorCode(cause);
+  }
+
+  switch (code) {
+    case "ECONNREFUSED":
+      return "SearXNG endpoint refused the connection";
+    case "ENOTFOUND":
+    case "EAI_AGAIN":
+      return "SearXNG hostname could not be resolved";
+    case "EHOSTUNREACH":
+    case "ENETUNREACH":
+      return "SearXNG endpoint was unreachable";
+    case "ECONNRESET":
+      return "SearXNG connection was reset";
+    default:
+      return "SearXNG request failed";
+  }
+}
+
 function endpoint(baseUrl: string, request: SearchRequest): URL {
   const url = new URL(baseUrl);
   url.pathname = `${url.pathname.replace(/\/$/, "")}/search`;
@@ -156,14 +194,9 @@ export class SearxngBackend implements SearchBackend {
           duration(),
         );
       }
-      const message = error instanceof Error ? error.message : String(error);
       return backendError(
         request,
-        operationalError(
-          "fetch_failed",
-          `SearXNG request failed: ${message}`,
-          true,
-        ),
+        operationalError("fetch_failed", fetchFailureMessage(error), true),
         duration(),
       );
     }

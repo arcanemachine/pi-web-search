@@ -75,6 +75,66 @@ describe("SearXNG backend", () => {
     assert.equal(outcome.error?.retryAfterMs, 3_000);
   });
 
+  for (const { code, message } of [
+    {
+      code: "ECONNREFUSED",
+      message: "SearXNG endpoint refused the connection",
+    },
+    {
+      code: "ENOTFOUND",
+      message: "SearXNG hostname could not be resolved",
+    },
+    {
+      code: "EAI_AGAIN",
+      message: "SearXNG hostname could not be resolved",
+    },
+    {
+      code: "EHOSTUNREACH",
+      message: "SearXNG endpoint was unreachable",
+    },
+    {
+      code: "ENETUNREACH",
+      message: "SearXNG endpoint was unreachable",
+    },
+    {
+      code: "ECONNRESET",
+      message: "SearXNG connection was reset",
+    },
+  ] as const) {
+    it(`classifies fetch cause ${code}`, async () => {
+      const backend = new SearxngBackend("https://search.example", {
+        fetch: (async () => {
+          throw new Error("outer fetch failure", { cause: { code } });
+        }) as typeof fetch,
+        now: Date.now,
+      });
+      const outcome = await backend.search(request, { timeoutMs: 1_000 });
+      assert.equal(outcome.status, "error");
+      assert.equal(outcome.error?.code, "fetch_failed");
+      assert.equal(outcome.error?.retryable, true);
+      assert.equal(outcome.error?.message, message);
+    });
+  }
+
+  it("does not expose unknown fetch failure details", async () => {
+    const marker = "SECRET_CONNECTION_DETAILS_123";
+    const backend = new SearxngBackend("https://search.example", {
+      fetch: (async () => {
+        throw new Error(marker, {
+          cause: Object.assign(new Error(marker), { code: "EUNKNOWN" }),
+        });
+      }) as typeof fetch,
+      now: Date.now,
+    });
+    const outcome = await backend.search(request, { timeoutMs: 1_000 });
+    assert.equal(outcome.status, "error");
+    assert.equal(outcome.error?.code, "fetch_failed");
+    assert.equal(outcome.error?.retryable, true);
+    assert.equal(outcome.error?.message, "SearXNG request failed");
+    assert.equal(outcome.summary, "SearXNG request failed");
+    assert.doesNotMatch(outcome.summary, new RegExp(marker));
+  });
+
   it("rejects non-JSON and malformed native responses", async () => {
     const html = new SearxngBackend("https://search.example", {
       fetch: (async () =>
