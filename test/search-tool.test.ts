@@ -88,6 +88,162 @@ describe("search_web tool", () => {
     assert.equal(warnings[0].code, "limit_clamped");
   });
 
+  it("uses Brave when explicitly configured", async () => {
+    const tools: RegisteredTool[] = [];
+    const pi = {
+      registerTool(tool: RegisteredTool) {
+        tools.push(tool);
+      },
+    } as unknown as ExtensionAPI;
+    const config: PiWebSearchConfig = {
+      ...DEFAULT_CONFIG,
+      backends: ["brave"],
+      braveApiKey: "fake-token",
+    };
+    const controller = createSearchToolController(pi, () => config, {
+      execute: async () => {
+        throw new Error("ddgr should not run");
+      },
+      fetch: (async () =>
+        new Response(
+          JSON.stringify({
+            web: {
+              results: [
+                {
+                  title: "Brave result",
+                  url: "https://example.com",
+                  description: "Snippet",
+                },
+              ],
+            },
+          }),
+          { headers: { "content-type": "application/json" } },
+        )) as typeof fetch,
+      now: () => 1_000,
+    });
+    controller.register();
+    const tool = tools.find((candidate) => candidate.name === "search_web");
+    assert.ok(tool);
+    const result = await tool.execute(
+      "call",
+      { query: "query" },
+      undefined,
+      undefined,
+      { cwd: process.cwd() },
+    );
+    assert.equal(result.details.status, "ok");
+    assert.equal(
+      (result.details.provenance as { backend?: string }).backend,
+      "brave",
+    );
+    assert.equal(
+      (result.details.data as { results: Array<{ engine?: string }> })
+        .results[0].engine,
+      "brave",
+    );
+  });
+
+  it("falls through from missing Brave to SearXNG with a bounded warning", async () => {
+    const tools: RegisteredTool[] = [];
+    const pi = {
+      registerTool(tool: RegisteredTool) {
+        tools.push(tool);
+      },
+    } as unknown as ExtensionAPI;
+    const config: PiWebSearchConfig = {
+      ...DEFAULT_CONFIG,
+      backends: ["brave", "searxng"],
+    };
+    const controller = createSearchToolController(pi, () => config, {
+      execute: async () => {
+        throw new Error("ddgr should not run");
+      },
+      fetch: (async () =>
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                title: "Fallback result",
+                url: "https://example.com",
+                content: "SearXNG",
+              },
+            ],
+          }),
+          { headers: { "content-type": "application/json" } },
+        )) as typeof fetch,
+      now: () => 1_000,
+    });
+    controller.register();
+    const tool = tools.find((candidate) => candidate.name === "search_web");
+    assert.ok(tool);
+    const result = await tool.execute(
+      "call",
+      { query: "query" },
+      undefined,
+      undefined,
+      { cwd: process.cwd() },
+    );
+    assert.equal(result.details.status, "ok");
+    assert.equal(
+      (result.details.provenance as { backend?: string }).backend,
+      "searxng",
+    );
+    const provenance = result.details.provenance as {
+      attempts?: Array<{ backend?: string }>;
+    };
+    assert.deepEqual(
+      provenance.attempts?.map((attempt) => attempt.backend),
+      ["brave", "searxng"],
+    );
+    const warnings = result.details.warnings as Array<{ source?: string }>;
+    assert.equal(warnings[0].source, "brave");
+  });
+
+  it("does not fall through after Brave returns no results", async () => {
+    const tools: RegisteredTool[] = [];
+    let calls = 0;
+    const pi = {
+      registerTool(tool: RegisteredTool) {
+        tools.push(tool);
+      },
+    } as unknown as ExtensionAPI;
+    const config: PiWebSearchConfig = {
+      ...DEFAULT_CONFIG,
+      backends: ["brave", "searxng"],
+      braveApiKey: "fake-token",
+    };
+    const controller = createSearchToolController(pi, () => config, {
+      execute: async () => {
+        throw new Error("ddgr should not run");
+      },
+      fetch: (async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ web: { results: [] } }), {
+          headers: { "content-type": "application/json" },
+        });
+      }) as typeof fetch,
+      now: () => 1_000,
+    });
+    controller.register();
+    const tool = tools.find((candidate) => candidate.name === "search_web");
+    assert.ok(tool);
+    const result = await tool.execute(
+      "call",
+      { query: "query" },
+      undefined,
+      undefined,
+      { cwd: process.cwd() },
+    );
+    assert.equal(result.details.status, "no_results");
+    assert.equal(calls, 1);
+    assert.deepEqual(
+      (
+        result.details.provenance as { attempts?: Array<{ backend?: string }> }
+      ).attempts?.map((attempt) => attempt.backend),
+      ["brave"],
+    );
+  });
+
   it("falls through from missing ddgr to SearXNG with a bounded warning", async () => {
     const tools: RegisteredTool[] = [];
     const pi = {

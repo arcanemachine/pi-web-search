@@ -44,9 +44,10 @@ Use `-l` when removing a project-local installation. Start or restart Pi after i
 | `grep_url_content`       | No external executable or service; requires outbound HTTP(S).                                                             |
 | `search_web` via ddgr    | `ddgr` installed separately on the `PATH` visible to Pi.                                                                  |
 | `search_web` via SearXNG | A reachable SearXNG service with JSON enabled.                                                                            |
+| `search_web` via Brave   | A Brave Search API subscription key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS.                                  |
 | HTML normalization       | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi. |
 
-You need at least one usable search backend to call `search_web`, but you do not need both. The document read and grep tools work without either search backend. This package does not install or manage ddgr or SearXNG. The default backend order is ddgr, then SearXNG.
+You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. This package does not install or manage ddgr, SearXNG, or Brave credentials. The default backend order remains ddgr, then SearXNG; Brave is explicit opt-in.
 
 ## Choose a search backend
 
@@ -110,6 +111,39 @@ If your instance uses another URL, substitute it in the check. Configure SearXNG
 
 This avoids ddgr execution entirely.
 
+### Brave only
+
+Brave is an explicit opt-in backend. It requires a Brave Search API subscription key and sends queries over HTTPS to the fixed official endpoint. See the official [Web Search API documentation](https://api.search.brave.com/app/documentation/web-search/get-started), [API key management](https://api.search.brave.com/app/keys), [rate-limit guidance](https://api.search.brave.com/app/documentation/web-search/rate-limiting), and [current pricing](https://brave.com/search/api/). Successful calls may consume quota or incur cost; verify the current pricing and account terms before use.
+
+Export the key in the environment of the process running Pi:
+
+```bash
+export PI_WEB_SEARCH_BRAVE_API_KEY='your-subscription-token'
+```
+
+The key is environment-only. A `braveApiKey` property in global or project JSON settings is rejected intentionally. Reload Pi or restart it after changing the environment.
+
+Configure Brave only:
+
+```json
+{
+  "pi-web-search": {
+    "backends": ["brave"]
+  }
+}
+```
+
+A recommended key-holder configuration uses Brave first and SearXNG as an operational fallback:
+
+```json
+{
+  "pi-web-search": {
+    "backends": ["brave", "searxng"],
+    "searxngUrl": "http://127.0.0.1:8080"
+  }
+}
+```
+
 ### ddgr with SearXNG fallback
 
 ```json
@@ -137,6 +171,12 @@ Use natural Pi requests to verify each tool:
 > Search the web for RFC 9110 and return three results.
 
 This validates backend dispatch and should return bounded title, URL, and snippet results with backend provenance.
+
+If Brave is configured and you accept the possible quota or cost, you can verify it explicitly:
+
+> Using Brave Search, find the official RFC 9110 source and return two results.
+
+Use a narrow query and check the returned backend provenance; a successful API call may consume account quota.
 
 > Read `https://www.rfc-editor.org/rfc/rfc9110.html` and show the opening section.
 
@@ -251,17 +291,19 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
 
 The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
 
-`SEARXNG_URL` is a lower-priority compatibility fallback only when `searxngUrl` is absent from settings. `CACHE_TTL_MINUTES` is a lower-priority compatibility fallback only when `documentCacheTtlSeconds` is absent. Package settings are preferred for new configuration. No other package-specific environment configuration is used. Use `/reload` or restart Pi to apply settings changes.
+`SEARXNG_URL` is a lower-priority compatibility fallback only when `searxngUrl` is absent from settings. `CACHE_TTL_MINUTES` is a lower-priority compatibility fallback only when `documentCacheTtlSeconds` is absent. `PI_WEB_SEARCH_BRAVE_API_KEY` is the environment-only exception for the Brave credential; it is not accepted in JSON settings. Package settings are preferred for new configuration. No other package-specific environment configuration is used. Use `/reload` or restart Pi to apply settings changes.
 
 ## Troubleshooting
 
 ### `backend_unavailable`
 
-This usually means ddgr is missing or is not on the `PATH` visible to Pi. Run `ddgr --version` from the environment that launches Pi, then install ddgr or remove it from the configured backend list.
+For Brave, this usually means `PI_WEB_SEARCH_BRAVE_API_KEY` is missing or blank. Export it in the environment visible to Pi and reload or restart Pi. A 401 means Brave rejected the subscription token; check the key in the official Brave account console without placing it in settings.
 
-### `blocked` from ddgr
+For ddgr, this usually means ddgr is missing or is not on the `PATH` visible to Pi. Run `ddgr --version` from the environment that launches Pi, then install ddgr or remove it from the configured backend list.
 
-DuckDuckGo can return transient blocking evidence. The known `HTTP Error 202: Accepted` response is classified as `blocked`. Do not repeatedly hammer it; wait and retry later or configure SearXNG fallback. No fixed cooldown is guaranteed.
+### `blocked` from ddgr or Brave
+
+DuckDuckGo can return transient blocking evidence. The known `HTTP Error 202: Accepted` response is classified as `blocked`. Brave HTTP 403 is also classified as `blocked`; check account permissions and service terms. Do not repeatedly hammer either service; wait or configure another backend. No fixed cooldown is guaranteed.
 
 ### `fetch_failed` from SearXNG
 
@@ -281,11 +323,17 @@ HTTP 403 can mean that JSON is disabled, a reverse proxy denied the request, or 
 
 ### `rate_limited`
 
-Distinguish the local process token bucket from DuckDuckGo/ddgr throttling, a SearXNG instance HTTP 429, and SearXNG engine diagnostics. Honor `retryAfterMs` when present, avoid immediate repeated calls, and inspect provenance.
+Distinguish the local process token bucket from DuckDuckGo/ddgr throttling, a SearXNG instance HTTP 429, SearXNG engine diagnostics, and Brave HTTP 429. Brave rate limits include `retryAfterMs` when the response supplies usable reset information. Honor `retryAfterMs` when present, avoid immediate repeated calls, and inspect provenance.
 
 ### `timeout`
 
 A backend or remote service exceeded `searchTimeoutMs`. Check service health before increasing the timeout; tune it only when the environment requires it.
+
+Brave query limits are also backend-local: queries over 400 Unicode characters or 50 whitespace-delimited words return `invalid_request` without truncation. A later configured backend may still be attempted.
+
+### Brave quota, billing, or HTTP 422
+
+Brave HTTP 422 means the API rejected the request parameters; check the query limits and current API documentation. Review your account's quota and billing terms in the official Brave console and pricing page before enabling this backend for repeated searches.
 
 ### `parse_failed` from SearXNG
 
@@ -304,6 +352,8 @@ Static extraction does not execute JavaScript. Use Playwright or another JavaScr
 - [`ddgr`](https://github.com/jarun/ddgr) must be installed separately on `PATH` to use that backend. This package never bundles, downloads, or installs it.
 - Direct `ddgr` use sends the query and caller network address to DuckDuckGo.
 - SearXNG mediates upstream connections but can observe the query. Its default URL is `http://127.0.0.1:8080`.
+- Brave receives the query and network information needed to provide API results. Review Brave's current API terms and retention practices; ordinary plans should not be assumed to provide zero-data retention.
+- The Brave subscription key is read only from `PI_WEB_SEARCH_BRAVE_API_KEY`, never from settings, and is not included in model-visible output. Search results may be cached locally without the key.
 - Document tools send the requested URL and caller network address to the destination server and any permitted HTTP redirects.
 
 ## Guardrails and outcomes

@@ -10,6 +10,7 @@ const PI_MAX_OUTPUT_BYTES = 50 * 1024;
 export interface PiWebSearchConfig {
   backends: SearchBackendName[];
   searxngUrl: string;
+  braveApiKey?: string;
   searchTimeoutMs: number;
   searchCacheTtlSeconds: number;
   searchRateLimitPerMinute: number;
@@ -185,7 +186,7 @@ function normalizeBackends(value: unknown): SearchBackendName[] {
       throw new ConfigurationError("backends must contain non-empty strings");
     }
     const backend = item.trim().toLowerCase();
-    if (backend !== "ddgr" && backend !== "searxng") {
+    if (backend !== "ddgr" && backend !== "searxng" && backend !== "brave") {
       throw new ConfigurationError(`unknown backend ${JSON.stringify(item)}`);
     }
     if (backends.includes(backend)) {
@@ -239,6 +240,9 @@ function envOverrides(
   if (configured.searxngUrl === undefined && searxngUrl) {
     result.searxngUrl = searxngUrl;
   }
+
+  const braveApiKey = env.PI_WEB_SEARCH_BRAVE_API_KEY?.trim();
+  if (braveApiKey) result.braveApiKey = braveApiKey;
 
   const ttlMinutes = env.CACHE_TTL_MINUTES?.trim();
   if (configured.documentCacheTtlSeconds === undefined && ttlMinutes) {
@@ -321,6 +325,9 @@ export function resolveConfig(
   }
   if (merged.searxngUrl !== undefined) {
     config.searxngUrl = normalizeSearxngUrl(merged.searxngUrl);
+  }
+  if (merged.braveApiKey !== undefined) {
+    config.braveApiKey = merged.braveApiKey as string;
   }
   for (const key of NUMERIC_KEYS) {
     if (merged[key] !== undefined) {

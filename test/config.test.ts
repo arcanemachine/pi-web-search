@@ -69,10 +69,33 @@ describe("pi-web-search configuration", () => {
   it("normalizes an ordered backend list", () => {
     const config = resolveConfig(
       {},
-      { "pi-web-search": { backends: [" SearXNG ", "DDGR"] } },
+      { "pi-web-search": { backends: [" SearXNG ", "DDGR", "BRAVE"] } },
       {},
     );
-    assert.deepEqual(config.backends, ["searxng", "ddgr"]);
+    assert.deepEqual(config.backends, ["searxng", "ddgr", "brave"]);
+  });
+
+  it("reads the Brave key only from the environment", () => {
+    const config = resolveConfig(
+      {},
+      { "pi-web-search": { backends: ["brave"] } },
+      { PI_WEB_SEARCH_BRAVE_API_KEY: "  fake-token  " },
+    );
+    assert.equal(config.braveApiKey, "fake-token");
+    assert.equal(DEFAULT_CONFIG.braveApiKey, undefined);
+    assert.throws(
+      () =>
+        resolveConfig(
+          {},
+          { "pi-web-search": { braveApiKey: "must-not-be-settings" } },
+          {},
+        ),
+      ConfigurationError,
+    );
+    assert.equal(
+      resolveConfig({}, {}, { PI_WEB_SEARCH_BRAVE_API_KEY: "   " }).braveApiKey,
+      undefined,
+    );
   });
 
   it("configures the token-bucket rate and burst independently", () => {

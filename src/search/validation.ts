@@ -14,6 +14,10 @@ export interface SearxngPayload {
   diagnostics: Diagnostic[];
 }
 
+export interface BravePayload {
+  results: SearchResult[];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -129,4 +133,37 @@ export function parseSearxngPayload(
     ok: true,
     value: { results, diagnostics: diagnostics.value },
   };
+}
+
+export function parseBravePayload(value: unknown): PayloadResult<BravePayload> {
+  if (!isRecord(value))
+    return parseError("Brave Search response must be an object");
+  const web = value.web;
+  if (web === undefined || web === null)
+    return { ok: true, value: { results: [] } };
+  if (!isRecord(web))
+    return parseError("Brave Search response web must be an object");
+  if (!Array.isArray(web.results)) {
+    return parseError("Brave Search response web.results must be an array");
+  }
+
+  const results: SearchResult[] = [];
+  for (let index = 0; index < web.results.length; index += 1) {
+    const item = web.results[index];
+    if (!isRecord(item)) {
+      return parseError(`Brave Search result ${index + 1} is malformed`);
+    }
+    const title = typeof item.title === "string" ? item.title.trim() : "";
+    const url = validateResultUrl(item.url);
+    if (!title || !url) {
+      return parseError(
+        `Brave Search result ${index + 1} has an invalid title or URL`,
+      );
+    }
+    const description =
+      typeof item.description === "string" ? item.description.trim() : "";
+    results.push({ title, url, snippet: description, engine: "brave" });
+  }
+
+  return { ok: true, value: { results } };
 }

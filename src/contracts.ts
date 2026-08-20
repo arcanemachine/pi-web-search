@@ -16,7 +16,7 @@ export type ToolOperation =
   | "read_url_content"
   | "grep_url_content";
 export type OutcomeStatus = "ok" | "no_results" | "no_match" | "error";
-export type SearchBackendName = "ddgr" | "searxng";
+export type SearchBackendName = "ddgr" | "searxng" | "brave";
 export type CacheStatus = "miss" | "hit" | "coalesced" | "bypassed";
 
 export type JsonPrimitive = string | number | boolean | null;

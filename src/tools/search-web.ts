@@ -13,6 +13,7 @@ import {
 } from "../contracts.js";
 import { formatOutcome } from "../format.js";
 import type { SearchBackend } from "../search/backend.js";
+import { BraveBackend } from "../search/brave.js";
 import { DdgrBackend, type CommandExecutor } from "../search/ddgr.js";
 import { SearchService } from "../search/service.js";
 import { SearxngBackend } from "../search/searxng.js";
@@ -179,6 +180,13 @@ export function createSearchToolController(
       backends.set(
         "searxng",
         new SearxngBackend(config.searxngUrl, {
+          fetch: dependencies.fetch,
+          now: dependencies.now,
+        }),
+      );
+      backends.set(
+        "brave",
+        new BraveBackend(config.braveApiKey, {
           fetch: dependencies.fetch,
           now: dependencies.now,
         }),
