@@ -113,7 +113,7 @@ This avoids ddgr execution entirely.
 
 ### Brave only
 
-Brave is an explicit opt-in backend. It requires a Brave Search API subscription key and sends queries over HTTPS to the fixed official endpoint. See the official [Web Search API documentation](https://api.search.brave.com/app/documentation/web-search/get-started), [API key management](https://api.search.brave.com/app/keys), [rate-limit guidance](https://api.search.brave.com/app/documentation/web-search/rate-limiting), and [current pricing](https://brave.com/search/api/). Successful calls may consume quota or incur cost; verify the current pricing and account terms before use.
+Brave is an explicit opt-in backend. It requires a Brave Search API subscription key and sends queries over HTTPS to the fixed official endpoint. See the official [Web Search API documentation](https://api-dashboard.search.brave.com/api-reference/web/search/get), [API key management](https://api-dashboard.search.brave.com/documentation/guides/authentication), [rate-limit guidance](https://api-dashboard.search.brave.com/documentation/guides/rate-limiting), and [current pricing](https://brave.com/search/api/). Successful calls may consume quota or incur cost; verify the current pricing and account terms before use.
 
 Export the key in the environment of the process running Pi:
 

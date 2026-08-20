@@ -118,23 +118,29 @@ describe("Brave Search backend", () => {
       { ...request, query: "x".repeat(401) },
       { timeoutMs: 1_000 },
     );
+    assert.equal(tooManyChars.error?.code, "invalid_request");
+    assert.equal(calls, 0);
+
+    const fiftyWords = await brave.search(
+      { ...request, query: Array.from({ length: 50 }, () => "word").join(" ") },
+      { timeoutMs: 1_000 },
+    );
+    assert.equal(fiftyWords.status, "no_results");
+    assert.equal(calls, 1);
+
     const tooManyWords = await brave.search(
       { ...request, query: Array.from({ length: 51 }, () => "word").join(" ") },
       { timeoutMs: 1_000 },
     );
-    assert.equal(tooManyChars.error?.code, "invalid_request");
     assert.equal(tooManyWords.error?.code, "invalid_request");
-    assert.equal(calls, 0);
-    assert.equal(
-      (
-        await brave.search(
-          { ...request, query: "x".repeat(400) },
-          { timeoutMs: 1_000 },
-        )
-      ).status,
-      "no_results",
-    );
     assert.equal(calls, 1);
+
+    const fourHundredChars = await brave.search(
+      { ...request, query: "x".repeat(400) },
+      { timeoutMs: 1_000 },
+    );
+    assert.equal(fourHundredChars.status, "no_results");
+    assert.equal(calls, 2);
   });
 
   for (const [status, code, retryable, message] of [
@@ -226,6 +232,19 @@ describe("Brave Search backend", () => {
     });
   }
 
+  it("maps a direct network error code", async () => {
+    const outcome = await backend((async () => {
+      throw Object.assign(new Error("secret network detail"), {
+        code: "ECONNREFUSED",
+      });
+    }) as typeof fetch).search(request, { timeoutMs: 1_000 });
+    assert.equal(outcome.error?.code, "fetch_failed");
+    assert.equal(
+      outcome.error?.message,
+      "Brave Search endpoint refused the connection",
+    );
+  });
+
   it("does not expose unknown network errors", async () => {
     const marker = "SECRET_BRAVE_NETWORK_DETAIL";
     const outcome = await backend((async () => {
@@ -254,6 +273,30 @@ describe("Brave Search backend", () => {
         })) as typeof fetch,
     ).search(request, { timeoutMs: 1_000 });
     assert.equal(oversized.error?.code, "parse_failed");
+
+    const bodyOversized = await backend(
+      (async () =>
+        new Response("x".repeat(2 * 1024 * 1024 + 1), {
+          headers: { "content-type": "application/json" },
+        })) as typeof fetch,
+    ).search(request, { timeoutMs: 1_000 });
+    assert.equal(bodyOversized.error?.code, "parse_failed");
+    assert.equal(
+      bodyOversized.error?.message,
+      "Brave Search response exceeded 2 MiB",
+    );
+
+    const malformedJson = await backend(
+      (async () =>
+        new Response("{", {
+          headers: { "content-type": "application/json" },
+        })) as typeof fetch,
+    ).search(request, { timeoutMs: 1_000 });
+    assert.equal(malformedJson.error?.code, "parse_failed");
+    assert.equal(
+      malformedJson.error?.message,
+      "Brave Search returned malformed JSON",
+    );
 
     const malformed = await backend((async () =>
       jsonResponse({ web: { results: "wrong" } })) as typeof fetch).search(

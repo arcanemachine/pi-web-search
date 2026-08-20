@@ -83,15 +83,16 @@ describe("pi-web-search configuration", () => {
     );
     assert.equal(config.braveApiKey, "fake-token");
     assert.equal(DEFAULT_CONFIG.braveApiKey, undefined);
-    assert.throws(
-      () =>
-        resolveConfig(
-          {},
-          { "pi-web-search": { braveApiKey: "must-not-be-settings" } },
-          {},
-        ),
-      ConfigurationError,
-    );
+    const secret = "BRAVE_SETTINGS_SECRET_123";
+    let configurationError: unknown;
+    try {
+      resolveConfig({}, { "pi-web-search": { braveApiKey: secret } }, {});
+    } catch (error) {
+      configurationError = error;
+    }
+    assert.ok(configurationError instanceof ConfigurationError);
+    assert.match(String(configurationError), /braveApiKey/);
+    assert.doesNotMatch(String(configurationError), new RegExp(secret));
     assert.equal(
       resolveConfig({}, {}, { PI_WEB_SEARCH_BRAVE_API_KEY: "   " }).braveApiKey,
       undefined,
