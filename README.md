@@ -36,6 +36,33 @@ pi remove git:github.com/arcanemachine/pi-web-search
 
 Use `-l` when removing a project-local installation. Start or restart Pi after installing a package or changing its configuration, or use `/reload` while Pi is already running.
 
+### Node version managers and package installation
+
+`pi install` clones a Git package into Pi's managed package directory and runs `npm` from that checkout. A Node version selected only by the current project's local `.tool-versions` can stop applying when npm runs in the managed checkout. With asdf, this can produce `No version is set for nodejs` and npm exit code 126 even though Pi started successfully from the original project. This is an environment and toolchain-selection issue, not a `pi-web-search` runtime dependency failure.
+
+Before installing, verify that both commands work from a neutral directory outside the current repository:
+
+```bash
+cd /tmp
+node --version
+npm --version
+```
+
+Choose a Node version compatible with your installed Pi release and local package tooling. Depending on your setup, safe remedies include:
+
+- configure an appropriate home or global asdf Node selection using the asdf version and documentation installed on your system;
+- export `ASDF_NODEJS_VERSION` in the environment that launches `pi install`;
+- configure Pi's top-level `npmCommand` setting to use a stable Node/npm wrapper, as supported by Pi's package-management documentation.
+
+For a one-time asdf selection, use an installed version as the placeholder below rather than assuming a particular Node release:
+
+```bash
+ASDF_NODEJS_VERSION=<installed-node-version> \
+  pi install git:github.com/arcanemachine/pi-web-search
+```
+
+After correcting the Node selection, rerun the normal installation command above and confirm the package with `pi list`. Do not edit Pi's managed checkout, copy `node_modules`, bypass npm scripts or package security, or change this package's source to work around an environment-selection problem.
+
 ## Dependencies at a glance
 
 | Capability               | Requirement                                                                                                               |
