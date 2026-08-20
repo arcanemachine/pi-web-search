@@ -2,6 +2,14 @@
   "name": "@arcanemachine/pi-web-search",
   "version": "1.0.0",
   "description": "Bounded web search and static document tools for pi",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arcanemachine/pi-web-search.git"
+  },
+  "homepage": "https://github.com/arcanemachine/pi-web-search#readme",
+  "bugs": {
+    "url": "https://github.com/arcanemachine/pi-web-search/issues"
+  },
   "type": "module",
   "keywords": [
     "pi-package"
@@ -33,14 +41,10 @@
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": {
-      "optional": true
-    },
-    "@earendil-works/pi-ai": {
       "optional": true
     }
   },
