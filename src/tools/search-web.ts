@@ -43,11 +43,11 @@ function defaultDependencies(pi: ExtensionAPI): SearchToolDependencies {
 }
 
 function description(config: PiWebSearchConfig): string {
-  return `Search the configured web backends in order (${config.backends.join(
+  return `Search configured backends in order (${config.backends.join(
     ", ",
-  )}). Defaults to ${config.searchMaxResults} results, clamps requests to ${
+  )}); default ${config.searchMaxResults} results, maximum ${
     config.searchMaxLimitResults
-  }, and returns at most ${config.searchMaxOutputBytes} bytes. Operational failures are structured and may fall through to the next backend; legitimate no-results responses do not.`;
+  }, output at most ${config.searchMaxOutputBytes} bytes. Failures may fall through; empty results do not.`;
 }
 
 function normalizeRequest(
@@ -203,13 +203,12 @@ export function createSearchToolController(
         name: "search_web",
         label: "Search Web",
         description: description(effective),
-        promptSnippet:
-          "Search configured web backends conservatively with bounded structured results and provenance.",
+        promptSnippet: "Search configured web backends.",
         promptGuidelines: [
-          "Use search_web conservatively: prefer one precise query, inspect the result, then refine only when necessary.",
-          `search_web uses a process-local token bucket (${effective.searchRateLimitPerMinute} logical searches/minute, burst ${effective.searchRateLimitBurst}); after a rate_limited result, do not retry before error.retryAfterMs.`,
-          "Treat search_web snippets as discovery aids; read the source before citing it.",
-          "When available, prefer a subagent type suited to web research for broad, multi-page, or context-heavy investigation.",
+          "Search precisely and refine only after inspecting results.",
+          "After rate_limited, wait error.retryAfterMs before retrying.",
+          "Treat search snippets as discovery aids; read sources before citing.",
+          "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
         ],
         parameters: SearchWebParams,
 

@@ -60,10 +60,10 @@ describe("search_web tool", () => {
     controller.register();
     const tool = tools.find((candidate) => candidate.name === "search_web");
     assert.ok(tool);
-    assert.match(
-      tool.promptGuidelines?.join("\n") ?? "",
-      /10 logical searches\/minute, burst 3.*error\.retryAfterMs/,
-    );
+    const promptGuidelines = tool.promptGuidelines?.join("\n") ?? "";
+    assert.match(promptGuidelines, /rate_limited/);
+    assert.match(promptGuidelines, /error\.retryAfterMs/);
+    assert.match(promptGuidelines, /discovery aids/);
 
     const result = await tool.execute(
       "call",

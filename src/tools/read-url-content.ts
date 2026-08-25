@@ -31,13 +31,13 @@ export function registerReadUrlContentTool(
   pi.registerTool({
     name: "read_url_content",
     label: "Read URL Content",
-    description: `Fetch and normalize a static HTTP(S) document into stable bounded pages. Defaults to ${effective.readMaxChars} characters and clamps requests to ${effective.readMaxLimitChars}.`,
-    promptSnippet:
-      "Read one bounded page from a normalized static document snapshot with provenance and stable pagination.",
+    description: `Fetch and normalize static HTTP(S) content into bounded pages (default ${effective.readMaxChars}, maximum ${effective.readMaxLimitChars} characters).`,
+    promptSnippet: "Read a page from a static URL snapshot.",
     promptGuidelines: [
-      "Use read_url_content for static HTML, text, Markdown, or JSON sources; use its cursor to continue the same snapshot.",
-      "If static extraction reports a client-rendered shell, prefer Playwright or another JavaScript-capable browser.",
-      "For page summarization, when available delegate the URL and objective to a suitable research subagent before fetching so it owns retrieval and returns a bounded report.",
+      "Use read_url_content for static HTML, text, Markdown, or JSON.",
+      "Use cursors to continue the exact cached snapshot.",
+      "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
+      "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
     ],
     parameters: ReadUrlContentParams,
 

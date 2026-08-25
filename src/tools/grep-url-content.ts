@@ -30,14 +30,13 @@ export function registerGrepUrlContentTool(
   pi.registerTool({
     name: "grep_url_content",
     label: "Grep URL Content",
-    description: `Find literal text in a shared normalized document snapshot. Defaults to ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters; requests are clamped to configured hard caps.`,
-    promptSnippet:
-      "Find bounded literal matches in a normalized static-document snapshot with exact quotes, locators, and stable pagination.",
+    description: `Find literal text in a normalized document snapshot (default ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters; requests are clamped).`,
+    promptSnippet: "Find text in a static URL snapshot.",
     promptGuidelines: [
       "Use grep_url_content for targeted literal extraction from known or likely static URLs.",
-      "Use the returned cursor to continue matching against the exact same snapshot.",
-      "If available, prefer a suitable research subagent for broad, multi-page, or context-heavy investigation.",
-      "If static extraction reports a client-rendered shell, prefer Playwright or another JavaScript-capable browser.",
+      "Use cursors to continue the exact cached snapshot.",
+      "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
+      "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
     ],
     parameters: GrepUrlContentParams,
 

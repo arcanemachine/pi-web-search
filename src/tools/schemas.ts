@@ -15,37 +15,36 @@ export const SearchWebParams = Type.Object(
   {
     query: Type.String({
       minLength: 1,
-      description: "Precise web search query (1-500 characters after trimming)",
+      description: "Web search query (maximum 500 characters)",
     }),
     limit: Type.Optional(
       Type.Integer({
         minimum: 1,
-        description: "Maximum results; clamped to the configured hard cap",
+        description: "Maximum result count",
       }),
     ),
     region: Type.Optional(
       Type.String({
         minLength: 1,
         maxLength: 64,
-        description: "Backend region/language code, such as us-en",
+        description: "Backend region/language code (for example, us-en)",
       }),
     ),
     safeSearch: Type.Optional(
       Type.String({
         enum: ["on", "off"],
-        description: "Safe search mode (default: on)",
+        description: "Safe search (default on)",
       }),
     ),
     timeRange: Type.Optional(
       Type.String({
         enum: ["day", "week", "month", "year"],
-        description: "Optional recency filter",
+        description: "Recency filter",
       }),
     ),
     forceRefresh: Type.Optional(
       Type.Boolean({
-        description:
-          "Bypass completed cache entries, but never the rate limiter",
+        description: "Bypass completed cache entries, not rate limits",
       }),
     ),
   },
@@ -57,37 +56,37 @@ export const ReadUrlContentParams = Type.Object(
     url: Type.String({
       minLength: 1,
       maxLength: 2_048,
-      description: "Absolute HTTP(S) URL without embedded credentials",
+      description: "HTTP(S) URL without credentials",
     }),
     mode: Type.Optional(
       Type.String({
         enum: ["main", "full"],
-        description: "Extract main content (default) or the full document body",
+        description: "Main content (default) or full document",
       }),
     ),
     selector: Type.Optional(
       Type.String({
         minLength: 1,
         maxLength: 500,
-        description: "Optional CSS selector overriding the content root",
+        description: "CSS selector for the content root",
       }),
     ),
     maxChars: Type.Optional(
       Type.Integer({
         minimum: 1,
-        description: "Maximum normalized characters; clamped to the hard cap",
+        description: "Maximum normalized characters",
       }),
     ),
     cursor: Type.Optional(
       Type.String({
         minLength: 1,
         maxLength: 2_048,
-        description: "Opaque cursor continuing the exact cached snapshot",
+        description: "Opaque cursor for the same cached snapshot",
       }),
     ),
     forceRefresh: Type.Optional(
       Type.Boolean({
-        description: "Bypass a completed snapshot cache entry",
+        description: "Bypass the completed snapshot cache",
       }),
     ),
   },
@@ -99,50 +98,50 @@ export const GrepUrlContentParams = Type.Object(
     url: Type.String({
       minLength: 1,
       maxLength: 2_048,
-      description: "Absolute HTTP(S) URL without embedded credentials",
+      description: "HTTP(S) URL without credentials",
     }),
     query: Type.String({
       minLength: 1,
-      description: "Literal text to find in the normalized snapshot",
+      description: "Literal text to find",
     }),
     beforeLines: Type.Optional(
-      Type.Integer({ minimum: 0, description: "Context lines before a match" }),
+      Type.Integer({ minimum: 0, description: "Context lines before matches" }),
     ),
     afterLines: Type.Optional(
-      Type.Integer({ minimum: 0, description: "Context lines after a match" }),
+      Type.Integer({ minimum: 0, description: "Context lines after matches" }),
     ),
     maxMatches: Type.Optional(
       Type.Integer({
         minimum: 1,
-        description: "Maximum matches; clamped to the configured hard cap",
+        description: "Maximum match count",
       }),
     ),
     maxChars: Type.Optional(
       Type.Integer({
         minimum: 1,
-        description: "Maximum quote characters; clamped to the hard cap",
+        description: "Maximum quote characters",
       }),
     ),
     caseSensitive: Type.Optional(
-      Type.Boolean({ description: "Use case-sensitive literal matching" }),
+      Type.Boolean({ description: "Case-sensitive matching" }),
     ),
     selector: Type.Optional(
       Type.String({
         minLength: 1,
         maxLength: 500,
-        description: "Optional CSS selector overriding the content root",
+        description: "CSS selector for the content root",
       }),
     ),
     cursor: Type.Optional(
       Type.String({
         minLength: 1,
         maxLength: 2_048,
-        description: "Opaque cursor continuing the exact cached match set",
+        description: "Opaque cursor for the same cached matches",
       }),
     ),
     forceRefresh: Type.Optional(
       Type.Boolean({
-        description: "Bypass a completed snapshot cache entry",
+        description: "Bypass the completed snapshot cache",
       }),
     ),
   },
