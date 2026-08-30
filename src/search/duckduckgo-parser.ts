@@ -95,15 +95,20 @@ function challengeEvidence(document: Document): boolean {
 }
 
 function recognizableSearchPage(document: Document): boolean {
-  if (document.querySelector("#links, .serp__results, .results")) return true;
-
-  const queryInput = document.querySelector(
-    'input[name="q"], #search_form_input_homepage, .search__input',
+  const resultShell = document.querySelector(
+    "#links, .serp__results, .results",
   );
+  if (!resultShell) return false;
+
   const searchForm = document.querySelector(
     'form[action*="/html" i], form.header__form, form.search__form, form#search_form',
   );
-  return Boolean(queryInput && searchForm);
+  if (!searchForm) return false;
+
+  const queryInput = searchForm.querySelector(
+    'input[name="q"], #search_form_input_homepage, .search__input',
+  );
+  return Boolean(queryInput);
 }
 
 export function parseDuckDuckGoHtml(

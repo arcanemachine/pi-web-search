@@ -17,6 +17,7 @@ function htmlResponse(body: string, init: ResponseInit = {}): Response {
 }
 
 const html = `<html><body><form class="header__form" action="/html/" method="post"><input name="q"></form><div id="links"><div class="links_main"><h2 class="result__title"><a href="https://example.com/docs">Docs</a></h2><div class="result__snippet">Reference</div></div></div></body></html>`;
+const emptyHtml = `<html><body><form class="header__form" action="/html/" method="post"><input name="q" value="query"></form><div id="links"></div></body></html>`;
 
 function backend(
   fetch: typeof globalThis.fetch,
@@ -73,7 +74,7 @@ describe("DuckDuckGo backend", () => {
     const bodies: URLSearchParams[] = [];
     const search = backend((async (_input, init) => {
       bodies.push(init?.body as URLSearchParams);
-      return htmlResponse("<html><body><div id=links></div></body></html>");
+      return htmlResponse(emptyHtml);
     }) as typeof fetch);
     await search.search(
       { ...request, region: undefined, safeSearch: undefined },
@@ -146,9 +147,9 @@ describe("DuckDuckGo backend", () => {
 
   it("handles no-results, invalid HTML, blocks, content types, and sizes", async () => {
     const empty = await backend((async () =>
-      htmlResponse(
-        "<html><body><div id=links></div></body></html>",
-      )) as typeof fetch).search(request, { timeoutMs: 1_000 });
+      htmlResponse(emptyHtml)) as typeof fetch).search(request, {
+      timeoutMs: 1_000,
+    });
     assert.equal(empty.status, "no_results");
 
     const invalid = await backend((async () =>

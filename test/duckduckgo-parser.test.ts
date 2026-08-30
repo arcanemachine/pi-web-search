@@ -110,12 +110,16 @@ describe("DuckDuckGo HTML parser", () => {
     );
   });
 
-  it("recognizes an empty search response but not unrelated HTML", () => {
+  it("requires both search form and results-shell markers for emptiness", () => {
     assert.deepEqual(parseDuckDuckGoHtml(page("")), { kind: "no_results" });
-    assert.equal(
-      parseDuckDuckGoHtml("<html><body><h1>Hello</h1></body></html>").kind,
-      "invalid",
-    );
+    for (const incomplete of [
+      '<html><body><div id="links"></div></body></html>',
+      '<html><body><form class="header__form" action="/html/"><input name="q"></form></body></html>',
+      '<html><body><div class="serp__results"></div></body></html>',
+      "<html><body><h1>Hello</h1></body></html>",
+    ]) {
+      assert.equal(parseDuckDuckGoHtml(incomplete).kind, "invalid", incomplete);
+    }
   });
 
   it("classifies dedicated challenges while ignoring result text", () => {
