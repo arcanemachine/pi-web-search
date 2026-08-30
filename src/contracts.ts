@@ -12,11 +12,9 @@ export const OPERATIONAL_ERROR_CODES = [
 
 export type OperationalErrorCode = (typeof OPERATIONAL_ERROR_CODES)[number];
 export type ToolOperation =
-  | "search_web"
-  | "read_url_content"
-  | "grep_url_content";
+  "search_web" | "read_url_content" | "grep_url_content";
 export type OutcomeStatus = "ok" | "no_results" | "no_match" | "error";
-export type SearchBackendName = "ddgr" | "searxng" | "brave";
+export type SearchBackendName = "duckduckgo" | "searxng" | "brave";
 export type CacheStatus = "miss" | "hit" | "coalesced" | "bypassed";
 
 export type JsonPrimitive = string | number | boolean | null;

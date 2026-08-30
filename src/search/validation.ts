@@ -6,8 +6,7 @@ import {
 } from "../contracts.js";
 
 export type PayloadResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: OperationalError };
+  { ok: true; value: T } | { ok: false; error: OperationalError };
 
 export interface SearxngPayload {
   results: SearchResult[];
@@ -61,23 +60,6 @@ function normalizeResult(
     snippet,
     ...(engine ? { engine } : {}),
   };
-}
-
-export function parseDdgrPayload(
-  value: unknown,
-): PayloadResult<SearchResult[]> {
-  if (!Array.isArray(value))
-    return parseError("ddgr JSON output must be an array");
-
-  const results: SearchResult[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const result = normalizeResult(value[index], "abstract");
-    if (!result) {
-      return parseError(`ddgr result ${index + 1} has an invalid title or URL`);
-    }
-    results.push(result);
-  }
-  return { ok: true, value: results };
 }
 
 function parseUnresponsiveEngines(value: unknown): PayloadResult<Diagnostic[]> {

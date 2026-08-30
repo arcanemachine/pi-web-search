@@ -41,7 +41,7 @@ export interface PiWebSearchConfig {
 }
 
 export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
-  backends: ["ddgr", "searxng"] as SearchBackendName[],
+  backends: ["duckduckgo", "searxng"] as SearchBackendName[],
   searxngUrl: "http://127.0.0.1:8080",
   searchTimeoutMs: 10_000,
   searchCacheTtlSeconds: 120,
@@ -186,7 +186,11 @@ function normalizeBackends(value: unknown): SearchBackendName[] {
       throw new ConfigurationError("backends must contain non-empty strings");
     }
     const backend = item.trim().toLowerCase();
-    if (backend !== "ddgr" && backend !== "searxng" && backend !== "brave") {
+    if (
+      backend !== "duckduckgo" &&
+      backend !== "searxng" &&
+      backend !== "brave"
+    ) {
       throw new ConfigurationError(`unknown backend ${JSON.stringify(item)}`);
     }
     if (backends.includes(backend)) {
