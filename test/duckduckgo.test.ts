@@ -128,14 +128,20 @@ describe("DuckDuckGo backend", () => {
     assert.equal(outcome.error?.retryAfterMs, 10_000);
   });
 
-  it("maps network failures without exposing thrown details", async () => {
-    const known = await backend((async () => {
-      throw new Error("secret", { cause: { code: "ECONNREFUSED" } });
-    }) as typeof fetch).search(request, { timeoutMs: 1_000 });
-    assert.equal(
-      known.error?.message,
-      "DuckDuckGo endpoint refused the connection",
-    );
+  it("maps known network failures without exposing thrown details", async () => {
+    for (const [code, message] of [
+      ["ECONNREFUSED", "DuckDuckGo endpoint refused the connection"],
+      ["ENOTFOUND", "DuckDuckGo hostname could not be resolved"],
+      ["EAI_AGAIN", "DuckDuckGo hostname could not be resolved"],
+      ["EHOSTUNREACH", "DuckDuckGo endpoint was unreachable"],
+      ["ENETUNREACH", "DuckDuckGo endpoint was unreachable"],
+      ["ECONNRESET", "DuckDuckGo connection was reset"],
+    ] as const) {
+      const outcome = await backend((async () => {
+        throw new Error("secret", { cause: { code } });
+      }) as typeof fetch).search(request, { timeoutMs: 1_000 });
+      assert.equal(outcome.error?.message, message, code);
+    }
 
     const marker = "SECRET_DDG_NETWORK_DETAIL";
     const unknown = await backend((async () => {
@@ -143,6 +149,23 @@ describe("DuckDuckGo backend", () => {
     }) as typeof fetch).search(request, { timeoutMs: 1_000 });
     assert.equal(unknown.error?.message, "DuckDuckGo request failed");
     assert.doesNotMatch(JSON.stringify(unknown), new RegExp(marker));
+  });
+
+  it("accepts missing and XHTML content types for valid HTML", async () => {
+    for (const headers of [
+      undefined,
+      { "content-type": "application/xhtml+xml; charset=UTF-8" },
+    ]) {
+      const outcome = await backend(
+        (async () =>
+          new Response(new TextEncoder().encode(html), {
+            headers,
+          })) as typeof fetch,
+      ).search(request, {
+        timeoutMs: 1_000,
+      });
+      assert.equal(outcome.status, "ok");
+    }
   });
 
   it("handles no-results, invalid HTML, blocks, content types, and sizes", async () => {

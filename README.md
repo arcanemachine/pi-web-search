@@ -10,31 +10,76 @@ Install the public Git package globally:
 pi install git:github.com/arcanemachine/pi-web-search
 ```
 
-For one project only, add `-l` to the install command. To try it for one invocation without saving it, use:
+Pi clones the Git package, installs its declared JavaScript runtime dependencies, and loads the extension declared by its Pi manifest. Pi packages execute code with the user's permissions, so review the source before installing a package.
+
+For one project only, install it locally:
+
+```bash
+pi install git:github.com/arcanemachine/pi-web-search -l
+```
+
+A global installation writes user settings under `~/.pi/agent/settings.json`. `-l` writes project settings under `.pi/settings.json`; project packages load only after the project is trusted.
+
+To try it for one Pi invocation without saving it to settings:
 
 ```bash
 pi -e git:github.com/arcanemachine/pi-web-search
 ```
 
-Pi installs the declared JavaScript dependencies and loads the extension from its package manifest. Review package source before installing an extension because it executes with the user's permissions. Use `pi list`, `pi update --extensions`, and `pi remove` to manage an installation. Reload or restart Pi after changing package settings.
+Use these commands to inspect and manage the installation:
+
+```bash
+pi list
+pi update --extensions
+pi remove git:github.com/arcanemachine/pi-web-search
+```
+
+Use `-l` when removing a project-local installation. Start or restart Pi after installing a package or changing its configuration, or use `/reload` while Pi is already running.
+
+### Node version managers and package installation
+
+`pi install` clones a Git package into Pi's managed package directory and runs `npm` from that checkout. A Node version selected only by the current project's local `.tool-versions` can stop applying when npm runs in the managed checkout. With asdf, this can produce `No version is set for nodejs` and npm exit code 126 even though Pi started successfully from the original project. This is an environment and toolchain-selection issue, not a `pi-web-search` runtime dependency failure.
+
+Before installing, verify that both commands work from a neutral directory outside the current repository:
+
+```bash
+cd /tmp
+node --version
+npm --version
+```
+
+Choose a Node version compatible with your installed Pi release and local package tooling. Depending on your setup, safe remedies include:
+
+- configure an appropriate home or global asdf Node selection using the asdf version and documentation installed on your system;
+- export `ASDF_NODEJS_VERSION` in the environment that launches `pi install`;
+- configure Pi's top-level `npmCommand` setting to use a stable Node/npm wrapper, as supported by Pi's package-management documentation.
+
+For a one-time asdf selection, use an installed version as the placeholder below rather than assuming a particular Node release:
+
+```bash
+ASDF_NODEJS_VERSION=<installed-node-version> \
+  pi install git:github.com/arcanemachine/pi-web-search
+```
+
+After correcting the Node selection, rerun the normal installation command above and confirm the package with `pi list`. Do not edit Pi's managed checkout, copy `node_modules`, bypass npm scripts or package security, or change this package's source to work around an environment-selection problem.
 
 ## Dependencies at a glance
 
-| Capability                                | Requirement                                                                            |
-| ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| `search_web` via `duckduckgo`             | Outbound HTTPS to DuckDuckGo's HTML search endpoint; no external executable or service |
-| `search_web` via `searxng`                | A reachable SearXNG service with JSON enabled                                          |
-| `search_web` via `brave`                  | A Brave Search API key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS             |
-| `read_url_content` and `grep_url_content` | Outbound HTTP(S) to requested pages                                                    |
-| HTML normalization                        | The package's declared `jsdom`, Mozilla Readability, and Markdown dependencies         |
+| Capability                                | Requirement                                                                             |
+| ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| `search_web` via `duckduckgo`             | Outbound HTTPS to DuckDuckGo's HTML search endpoint; no external executable or service  |
+| `search_web` via SearXNG                  | A reachable SearXNG service with JSON enabled                                           |
+| `search_web` via Brave                    | A Brave Search API subscription key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS |
+| `read_url_content` and `grep_url_content` | Outbound HTTP(S) to requested pages                                                     |
+| HTML normalization                        | The package's declared `jsdom`, Mozilla Readability, and Markdown dependencies          |
 
-The default order is `duckduckgo`, then `searxng`; Brave is explicit opt-in. You need at least one usable search backend to call `search_web`. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
+You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. The default backend order is `duckduckgo`, then SearXNG; Brave is explicit opt-in. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
 
 ## Choose a search backend
 
-### DuckDuckGo
+### DuckDuckGo only
 
-DuckDuckGo is the default, service-free backend. The package sends a standards-compliant form POST directly to `https://html.duckduckgo.com/html`, parses ordered HTML results, and returns bounded title, URL, and snippet fields. Region, safe-search, and recency options are mapped to the endpoint request. DuckDuckGo may transiently block or rate-limit automated requests; those responses are classified as retryable operational outcomes.
+DuckDuckGo is the default, service-free search setup. The package sends a standards-compliant form POST directly to `https://html.duckduckgo.com/html`, parses ordered HTML results, and returns bounded title, URL, and snippet fields. Region, safe-search, and recency options are mapped to the endpoint request. DuckDuckGo may transiently block or rate-limit automated requests; those responses are classified as retryable operational outcomes.
 
 Configure DuckDuckGo only:
 
@@ -46,9 +91,13 @@ Configure DuckDuckGo only:
 }
 ```
 
+This prevents SearXNG fallback attempts.
+
 ### SearXNG only
 
-SearXNG is an external service that this package does not install or manage. The package requests `<searxngUrl>/search` with `format=json`. Enable JSON in SearXNG settings:
+SearXNG is an external service that must already be installed and running; this package does not manage it. See the [official installation documentation](https://docs.searxng.org/admin/installation.html), [Search API](https://docs.searxng.org/dev/search_api.html), and [search settings](https://docs.searxng.org/admin/settings/settings_search.html#settings-search).
+
+The package performs GET requests to `<searxngUrl>/search` with `format=json`. Enable JSON in SearXNG's settings:
 
 ```yaml
 search:
@@ -57,7 +106,19 @@ search:
     - json
 ```
 
-Configure it only:
+Installations commonly enable only HTML. Requesting an unavailable format returns HTTP 403, and many public instances disable JSON. Restart or reload SearXNG after changing its settings.
+
+The endpoint must be reachable from the process running Pi. In a container, `127.0.0.1` refers to that container, not automatically to its host.
+
+For the default URL, an example readiness check is:
+
+```bash
+curl -fsS \
+  'http://127.0.0.1:8080/search?q=pi&format=json' \
+  >/dev/null && echo "SearXNG JSON API ready"
+```
+
+If your instance uses another URL, substitute it in the check. Configure SearXNG only:
 
 ```json
 {
@@ -68,22 +129,37 @@ Configure it only:
 }
 ```
 
-The endpoint must be reachable from the process running Pi. In a container, `127.0.0.1` refers to that container. Public instances may disable JSON or apply access controls.
+This keeps the configured backend limited to SearXNG.
 
 ### Brave only
 
-Brave is an explicit opt-in backend. Export the subscription key in the environment of the process running Pi:
+Brave is an explicit opt-in backend. It requires a Brave Search API subscription key and sends queries over HTTPS to the fixed official endpoint. See the official [Web Search API documentation](https://api-dashboard.search.brave.com/api-reference/web/search/get), [API key management](https://api-dashboard.search.brave.com/documentation/guides/authentication), [rate-limit guidance](https://api-dashboard.search.brave.com/documentation/guides/rate-limiting), and [current pricing](https://brave.com/search/api/). Successful calls may consume quota or incur cost; verify the current pricing and account terms before use.
+
+Export the key in the environment of the process running Pi:
 
 ```bash
 export PI_WEB_SEARCH_BRAVE_API_KEY='your-subscription-token'
 ```
 
-The key is environment-only and is never accepted in package JSON settings or returned in model-visible output. Review Brave's current API terms, quota, pricing, and retention practices before use.
+The key is environment-only. A `braveApiKey` property in global or project JSON settings is rejected intentionally. Reload Pi or restart it after changing the environment.
+
+Configure Brave only:
 
 ```json
 {
   "pi-web-search": {
     "backends": ["brave"]
+  }
+}
+```
+
+A recommended key-holder configuration uses Brave first and SearXNG as an operational fallback:
+
+```json
+{
+  "pi-web-search": {
+    "backends": ["brave", "searxng"],
+    "searxngUrl": "http://127.0.0.1:8080"
   }
 }
 ```
@@ -99,11 +175,44 @@ The key is environment-only and is never accepted in package JSON settings or re
 }
 ```
 
-With this configuration, DuckDuckGo is attempted first and SearXNG is attempted only after an operational error. Legitimate `no_results`, cache hits, and local rate limiting do not trigger fallback. Provenance records attempts and the selected backend.
+With this configuration:
+
+1. DuckDuckGo is attempted first.
+2. SearXNG is attempted only after an evidenced operational error.
+3. Legitimate `no_results` does not trigger fallback.
+4. Local process rate limiting does not dispatch backends.
+5. Result provenance identifies attempts and the selected backend.
+6. If both fail, the final backend error is returned and earlier failures appear as warnings.
+
+## Verify the installation
+
+Use natural Pi requests to verify each tool:
+
+> Search the web for RFC 9110 and return three results.
+
+This validates backend dispatch and should return bounded title, URL, and snippet results with backend provenance.
+
+If Brave is configured and you accept the possible quota or cost, you can verify it explicitly:
+
+> Using Brave Search, find the official RFC 9110 source and return two results.
+
+Use a narrow query and check the returned backend provenance; a successful API call may consume account quota.
+
+> Read `https://www.rfc-editor.org/rfc/rfc9110.html` and show the opening section.
+
+This validates HTTP retrieval, static HTML parsing, Markdown normalization, and bounded snapshot creation.
+
+> Find `Representation Metadata` in `https://www.rfc-editor.org/rfc/rfc9110.html`.
+
+This validates literal matching against the normalized snapshot.
+
+Search snippets are for discovery; read the source before citing it.
 
 ## Tools
 
 ### `search_web`
+
+Searches the configured backend order only.
 
 ```ts
 {
@@ -116,19 +225,53 @@ With this configuration, DuckDuckGo is attempted first and SearXNG is attempted 
 }
 ```
 
-Searches the configured backend order. `limit` is bounded by configuration and applies to one initial DuckDuckGo page; the backend does not paginate. `forceRefresh` bypasses completed cache entries, not the process-local limiter. Search snippets are discovery aids; read sources before citing them.
+The default order is `duckduckgo`, then SearXNG. The next backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `limit` applies to one initial DuckDuckGo HTML page; the backend does not paginate. `forceRefresh` bypasses completed cache entries, not the limiter.
 
 ### `read_url_content`
 
-Fetches an HTTP(S) URL, parses static HTML without executing scripts, and returns a bounded normalized snapshot. Plain text, Markdown, XML text, and JSON use deterministic native normalization. Main mode prefers an explicit selector, `main`, `[role="main"]`, and `article`; full mode and selectors remain deterministic. JavaScript-rendered content is not fetched by a browser.
+Fetches an HTTP(S) URL, creates a bounded normalized snapshot, and returns one stable page.
+
+```ts
+{
+  url: string;
+  mode?: "main" | "full";
+  selector?: string;
+  maxChars?: number;
+  cursor?: string;
+  forceRefresh?: boolean;
+}
+```
+
+HTML is parsed without executing scripts and converted to Markdown. Plain text, Markdown, XML text, and JSON use native normalization. Main-mode extraction selects an explicit CSS selector or deterministically prefers `main`, `[role="main"]`, and `article`; sectioned body-only documents preserve their structured body, while weakly structured pages use best-effort Mozilla Readability extraction before falling back to the body. Full mode and selectors remain deterministic. JavaScript-dependent content is not rendered.
 
 ### `grep_url_content`
 
-Finds literal text in the same normalized snapshots used by `read_url_content`. Matches include bounded quotes, line numbers, normalized offsets, and heading breadcrumbs. No matches return `status: "no_match"`.
+Finds literal text in the same normalized snapshots used by `read_url_content`.
+
+```ts
+{
+  url: string;
+  query: string;
+  beforeLines?: number;
+  afterLines?: number;
+  maxMatches?: number;
+  maxChars?: number;
+  caseSensitive?: boolean;
+  selector?: string;
+  cursor?: string;
+  forceRefresh?: boolean;
+}
+```
+
+Matches include exact bounded quotes, heading breadcrumbs, line numbers, and normalized character offsets. Overlapping context windows are coalesced. No matches return explicit `status: "no_match"`.
+
+Document cursors are opaque, authenticated, process-local, and bound to the operation, options, position, and exact cached snapshot. Expired or evicted snapshots return `cursor_expired`; cursors never silently continue against refetched content. A cursor cannot be combined with `forceRefresh`.
 
 ## Configuration
 
-Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or project `.pi/settings.json`. Project properties override matching global properties.
+Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or project `.pi/settings.json`. Project properties override matching global properties, while unspecified settings retain their defaults. Configure only the overrides you intend to change. The three minimal backend examples are in [Choose a search backend](#choose-a-search-backend).
+
+### Complete default configuration reference
 
 ```json
 {
@@ -166,50 +309,80 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
 }
 ```
 
-The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error. `SEARXNG_URL` remains a lower-priority fallback when `searxngUrl` is absent, and `CACHE_TTL_MINUTES` remains a lower-priority fallback for document cache TTL. Use `/reload` or restart Pi to apply settings changes.
+The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
+
+`SEARXNG_URL` is a lower-priority compatibility fallback only when `searxngUrl` is absent from settings. `CACHE_TTL_MINUTES` is a lower-priority compatibility fallback only when `documentCacheTtlSeconds` is absent. `PI_WEB_SEARCH_BRAVE_API_KEY` is the environment-only exception for the Brave credential; it is not accepted in JSON settings. Package settings are preferred for new configuration. No other package-specific environment configuration is used. Use `/reload` or restart Pi to apply settings changes.
 
 ## Troubleshooting
 
-### `blocked`
+### `backend_unavailable`
 
-DuckDuckGo can return HTTP 202 or 403, dedicated challenge pages, or other narrowly recognized blocking evidence. Brave HTTP 403 and SearXNG access denials are also classified as blocked. Wait, use the configured fallback, or try a later search; do not repeatedly retry a blocked service.
+For Brave, this usually means `PI_WEB_SEARCH_BRAVE_API_KEY` is missing or blank. Export it in the environment visible to Pi and reload or restart Pi. A 401 means Brave rejected the subscription token; check the key in the official Brave account console without placing it in settings.
+
+### `blocked` from DuckDuckGo or Brave
+
+DuckDuckGo can return transient blocking evidence. DuckDuckGo HTTP 202 or 403 responses, dedicated challenge pages, and other narrowly recognized blocking evidence are classified as `blocked`. Brave HTTP 403 is also classified as `blocked`; check account permissions and service terms. Do not repeatedly hammer either service; wait or configure another backend. No fixed cooldown is guaranteed.
+
+### `fetch_failed` from SearXNG
+
+The safe connection messages are:
+
+- `SearXNG endpoint refused the connection`
+- `SearXNG hostname could not be resolved`
+- `SearXNG endpoint was unreachable`
+- `SearXNG connection was reset`
+- `SearXNG request failed`
+
+Check service state, `searxngUrl`, host/container reachability, and the direct JSON API curl shown above.
+
+### SearXNG HTTP 403 / `blocked`
+
+HTTP 403 can mean that JSON is disabled, a reverse proxy denied the request, or access controls rejected it. Verify `json` in `search.formats` and test the direct curl; do not assume every 403 is a JSON-format problem.
 
 ### `rate_limited`
 
-This can come from the local process token bucket, DuckDuckGo HTTP 429, SearXNG engine diagnostics or HTTP 429, or Brave HTTP 429. Honor `error.retryAfterMs` when supplied and avoid immediate repeated calls.
-
-### `fetch_failed`
-
-Check outbound network access, DNS, and service health. Errors expose stable safe messages rather than raw URLs, thrown details, or nested error objects.
+Distinguish the local process token bucket from DuckDuckGo HTTP 429 throttling, a SearXNG instance HTTP 429, SearXNG engine diagnostics, and Brave HTTP 429. Brave rate limits include `retryAfterMs` when the response supplies usable reset information. Honor `retryAfterMs` when present, avoid immediate repeated calls, and inspect provenance.
 
 ### `timeout`
 
-A backend or remote service exceeded `searchTimeoutMs`; the timeout covers both response fetching and body reading. Check service health before increasing it.
+A backend or remote service exceeded `searchTimeoutMs`. For DuckDuckGo, the timeout covers response fetching and body reading. Check service health before increasing the timeout; tune it only when the environment requires it.
+
+Brave query limits are also backend-local: queries over 400 Unicode characters or 50 whitespace-delimited words return `invalid_request` without truncation. A later configured backend may still be attempted.
+
+### Brave quota, billing, or HTTP 422
+
+Brave HTTP 422 means the API rejected the request parameters; check the query limits and current API documentation. Review your account's quota and billing terms in the official Brave console and pricing page before enabling this backend for repeated searches.
 
 ### `parse_failed`
 
-DuckDuckGo responses must be recognizable HTML search pages. Incompatible content types, malformed result containers, unsafe destinations, unrelated pages, and responses over 2 MiB are rejected. SearXNG JSON and Brave JSON have equivalent bounded parsing checks.
+DuckDuckGo responses must be recognizable HTML search pages. Incompatible content types, malformed result containers, unsafe destinations, unrelated pages, and responses over 2 MiB are rejected.
+
+For SearXNG, possible causes include HTML instead of JSON, disabled JSON, a proxy error page, the wrong endpoint, or an unsupported payload. Test the exact `/search?...&format=json` endpoint.
 
 ### `no_results`
 
-This is a legitimate empty search and does not trigger fallback. Refine or correct the query.
+This is a legitimate result, not a backend failure. Fallback intentionally does not run; refine or correct the query.
 
-Static document extraction does not execute JavaScript. Use a JavaScript-capable browser separately when a page's needed content is rendered only in the browser.
+### Client-rendered shell warning
 
-## Requirements, privacy, and limitations
+Static extraction does not execute JavaScript. Use Playwright or another JavaScript-capable browser when the needed content is rendered only in the browser.
 
-- DuckDuckGo search requires no separate command or Python installation. It sends the query and caller network information directly to DuckDuckGo over HTTPS.
-- SearXNG can observe queries and mediates upstream connections. Its default URL is `http://127.0.0.1:8080`.
-- Brave receives the query and network information needed to provide API results. The API key is read only from `PI_WEB_SEARCH_BRAVE_API_KEY`.
-- Document tools send requested URLs and caller network information to destination servers and permitted HTTP redirects.
-- Search responses are parsed as one initial HTML page. Pagination, instant answers, news-specific modes, interactive prompts, and browser rendering are outside this package.
-- HTML endpoint availability and transient blocking are not guaranteed. Configure SearXNG or Brave as an operational fallback when reliability requirements call for it.
+## Requirements and privacy
+
+- DuckDuckGo search requires no separate command or Python installation. It sends the query and caller network address directly to DuckDuckGo over HTTPS.
+- SearXNG mediates upstream connections but can observe the query. Its default URL is `http://127.0.0.1:8080`.
+- Brave receives the query and network information needed to provide API results. Review Brave's current API terms and retention practices; ordinary plans should not be assumed to provide zero-data retention.
+- The Brave subscription key is read only from `PI_WEB_SEARCH_BRAVE_API_KEY`, never from settings, and is not included in model-visible output. Search results may be cached locally without the key.
+- Document tools send the requested URL and caller network address to the destination server and any permitted HTTP redirects.
 
 ## Guardrails and outcomes
 
-Search uses a process-local token bucket with a sustained default rate of 10 logical outbound searches per minute and burst capacity of 3. Cache hits and identical in-flight callers are exempt. Search and document caches are process-local TTL/LRU caches bounded by entry count and bytes; expected operational errors are not cached.
-
-Document fetches accept HTTP(S) only, reject embedded credentials, follow at most five redirects, stream at most 5 MiB by default, and enforce timeout and cancellation. Model-visible content and structured details are independently bounded below Pi's protocol limits. Raw HTML, backend-native payloads, and unbounded diagnostics are never returned.
+- Search uses a process-local token bucket with a sustained default rate of 10 logical outbound searches per minute and a burst capacity of 3. Tokens refill continuously, so this is an average rate rather than a strict rolling-window limit. Cache hits and identical in-flight callers are exempt. Pi subagents use separate processes and therefore separate buckets.
+- Search and document caches are process-local TTL/LRU caches bounded by entry count and bytes. Expected operational errors are not cached.
+- Document fetches accept HTTP(S) only, reject embedded credentials, follow at most five redirects, stream at most 5 MiB by default, and enforce timeout/cancellation.
+- Normalized snapshots default to a 2 MiB configured byte cap and always enforce a 50,000-line internal safety cap. Incomplete snapshots carry explicit warnings.
+- Static extraction warns when a page appears to be a client-rendered shell; use Playwright or another JavaScript-capable browser in that case.
+- Model-visible `content` and structured `details` are independently bounded below Pi's 50 KB/2,000-line protocol ceiling. Raw HTML, backend-native payloads, unbounded diagnostics, and full cached snapshots are never returned.
 
 Expected outcomes use structured statuses:
 
@@ -218,8 +391,8 @@ Expected outcomes use structured statuses:
 - `no_match`
 - `error`
 
-Operational errors include stable codes such as `invalid_request`, `backend_unavailable`, `rate_limited`, `timeout`, `blocked`, `fetch_failed`, `backend_failed`, `parse_failed`, and `cursor_expired`, with retry guidance when known.
+Operational errors include stable codes such as `invalid_request`, `backend_unavailable`, `rate_limited`, `timeout`, `blocked`, `fetch_failed`, `backend_failed`, `parse_failed`, and `cursor_expired`, plus retry guidance when known. Unexpected invariant failures remain protocol-level errors.
 
 ## Research workflow
 
-When subagents are available, prefer a suitable research subagent for broad, multi-page, or context-heavy investigation. For page summarization, delegate the URL and objective before fetching so the subagent owns retrieval and returns a bounded evidence report. The extension itself is deterministic and never invokes an LLM.
+When subagents are available, prefer a type suited to web research for broad, multi-page, or context-heavy investigation. For page summarization, delegate the URL and objective before fetching so that subagent owns retrieval and returns a bounded evidence report. The extension itself is deterministic and never invokes an LLM.

@@ -14,7 +14,7 @@ function normalizeText(value: string): string {
 }
 
 function isDuckDuckGoHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
+  const host = hostname.toLowerCase().replace(/\.+$/u, "");
   return host === "duckduckgo.com" || host.endsWith(".duckduckgo.com");
 }
 
@@ -30,11 +30,19 @@ export function normalizeDuckDuckGoUrl(raw: string): string | undefined {
 
   if (parsed.username || parsed.password) return undefined;
 
-  if (isDuckDuckGoHost(parsed.hostname)) {
+  if (
+    isDuckDuckGoHost(parsed.hostname) &&
+    (parsed.pathname === "/l" || parsed.pathname === "/l/")
+  ) {
     const uddg = parsed.searchParams.get("uddg");
+    const queryParameters = [...parsed.searchParams.entries()];
+    const qIndex = queryParameters.findIndex(([key]) => key === "q");
+    const saIndex = queryParameters.findIndex(
+      ([key], index) => key === "sa" && index > qIndex,
+    );
     const oldDestination =
-      uddg === null && parsed.searchParams.has("sa")
-        ? parsed.searchParams.get("q")
+      uddg === null && qIndex >= 0 && saIndex >= 0
+        ? queryParameters[qIndex]?.[1]
         : null;
     const destination = uddg ?? oldDestination;
     if (destination !== null) {
@@ -163,5 +171,3 @@ export function parseDuckDuckGoHtml(
         );
   return { kind: "results", results: results.slice(0, maximum) };
 }
-
-export const parseDuckDuckGo = parseDuckDuckGoHtml;

@@ -57,12 +57,16 @@ describe("DuckDuckGo HTML parser", () => {
 
   it("normalizes direct, relative, and protocol-relative redirects", () => {
     assert.equal(
+      normalizeDuckDuckGoUrl("http://example.com/a?x=1#part"),
+      "http://example.com/a?x=1#part",
+    );
+    assert.equal(
       normalizeDuckDuckGoUrl("https://example.com/a?x=1#part"),
       "https://example.com/a?x=1#part",
     );
     assert.equal(
       normalizeDuckDuckGoUrl(
-        "/l/?uddg=https%3A%2F%2Fexample.com%2Fa%3Fx%3D1%26y%3D2%23part",
+        "/l?uddg=https%3A%2F%2Fexample.com%2Fa%3Fx%3D1%26y%3D2%23part",
       ),
       "https://example.com/a?x=1&y=2#part",
     );
@@ -74,7 +78,7 @@ describe("DuckDuckGo HTML parser", () => {
     );
     assert.equal(
       normalizeDuckDuckGoUrl(
-        "/l/?q=https%3A%2F%2Fexample.com%2Fold%26x%3D1&sa=U",
+        "/l?q=https%3A%2F%2Fexample.com%2Fold%26x%3D1&sa=U",
       ),
       "https://example.com/old&x=1",
     );
@@ -86,8 +90,11 @@ describe("DuckDuckGo HTML parser", () => {
       "data:text/html,nope",
       "https://user:pass@example.com/",
       "https://duckduckgo.com/?q=internal",
-      "/html/?q=internal",
+      "https://duckduckgo.com/?uddg=https%3A%2F%2Fexample.com",
+      "/html/?q=https%3A%2F%2Fexample.com&sa=U",
+      "/l/?sa=U&q=https%3A%2F%2Fexample.com",
       "https://duckduckgo.com/l/?q=internal&sa=U",
+      "https://duckduckgo.com./?q=internal",
     ]) {
       assert.equal(normalizeDuckDuckGoUrl(href), undefined, href);
     }
