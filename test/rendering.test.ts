@@ -9,8 +9,11 @@ const theme = {
   bold: (text: string) => text,
 } as unknown as Theme;
 
-function rendered(component: { render(width: number): string[] }): string {
-  return component.render(80).join("\n");
+function rendered(
+  component: { render(width: number): string[] },
+  width = 80,
+): string {
+  return component.render(width).join("\n");
 }
 
 describe("tool presentation renderers", () => {
@@ -76,6 +79,45 @@ describe("tool presentation renderers", () => {
     assert.match(expanded, /Fourth snippet/);
     assert.match(expanded, /https:\/\/example\.test\/fourth/);
     assert.ok(collapsed.length < expanded.length);
+  });
+
+  it("keeps the useful beginning of collapsed output at narrow widths", () => {
+    const result = formatOutcome({
+      operation: "search_web",
+      status: "ok",
+      summary: "Found results",
+      data: {
+        query: "pi",
+        results: [
+          {
+            title: "First result",
+            url: "https://example.test/first",
+            snippet: "First snippet",
+          },
+          {
+            title: "Second result",
+            url: "https://example.test/second",
+            snippet: "Second snippet",
+          },
+          {
+            title: "Third result",
+            url: "https://example.test/third",
+            snippet: "Third snippet",
+          },
+          {
+            title: "Fourth result",
+            url: "https://example.test/fourth",
+            snippet: "Fourth snippet",
+          },
+        ],
+      },
+    });
+    const collapsed = rendered(
+      renderToolResult("search_web", result, false, theme),
+      8,
+    );
+    assert.match(collapsed, /4/);
+    assert.match(collapsed, /First/);
   });
 
   it("renders read, grep, and summary previews with full expanded content", () => {

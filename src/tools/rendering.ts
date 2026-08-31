@@ -51,6 +51,31 @@ function resultContent(result: unknown): string {
   return block?.text ?? "";
 }
 
+function headVisualLines(
+  text: string,
+  maxLines: number,
+  width: number,
+): string[] {
+  if (maxLines <= 0) return [];
+  const lines: string[] = [];
+  for (const logicalLine of text.split("\n")) {
+    if (logicalLine.length === 0) {
+      lines.push("");
+    } else {
+      lines.push(
+        ...truncateToVisualLines(
+          logicalLine,
+          Number.MAX_SAFE_INTEGER,
+          Math.max(1, width),
+          0,
+        ).visualLines,
+      );
+    }
+    if (lines.length >= maxLines) break;
+  }
+  return lines.slice(0, maxLines);
+}
+
 function outputComponent(
   text: string,
   expanded: boolean,
@@ -66,19 +91,29 @@ function outputComponent(
       return expanded ? "to collapse" : "to expand";
     }
   })();
-  const display = expanded ? text : `${text}\n${theme.fg("dim", `(${hint})`)}`;
   let cachedWidth: number | undefined;
   let cachedLines: string[] | undefined;
   return {
     render(width: number): string[] {
       if (cachedLines && cachedWidth === width) return cachedLines;
-      const lineLimit = expanded ? 1_000_000 : 8;
-      cachedLines = truncateToVisualLines(
-        display,
-        lineLimit,
-        Math.max(1, width),
-        0,
-      ).visualLines;
+      const safeWidth = Math.max(1, width);
+      if (expanded) {
+        cachedLines = truncateToVisualLines(
+          text,
+          Number.MAX_SAFE_INTEGER,
+          safeWidth,
+          0,
+        ).visualLines;
+      } else {
+        const preview = headVisualLines(text, 7, safeWidth);
+        const hintLines = truncateToVisualLines(
+          theme.fg("dim", `(${hint})`),
+          1,
+          safeWidth,
+          0,
+        ).visualLines;
+        cachedLines = [...preview, ...hintLines];
+      }
       cachedWidth = width;
       return cachedLines;
     },
