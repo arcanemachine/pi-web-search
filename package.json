@@ -1,7 +1,9 @@
 {
   "name": "@arcanemachine/pi-web-search",
   "version": "1.0.0",
-  "description": "Bounded web search and static document tools for pi",
+  "description": "Bounded web search and static document tools for Pi",
+  "author": "Nicholas Moen",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/arcanemachine/pi-web-search.git"
@@ -12,19 +14,28 @@
   },
   "type": "module",
   "keywords": [
-    "pi-package"
+    "pi",
+    "pi-coding-agent",
+    "pi-extension",
+    "pi-package",
+    "web-search",
+    "duckduckgo",
+    "documents"
   ],
   "pi": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/arcanemachine/pi-web-search/main/logo.jpg"
   },
   "scripts": {
     "build": "tsc --noEmit",
     "watch": "tsc --watch --noEmit",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md",
-    "test": "node --import tsx --test test/*.test.ts"
+    "format": "prettier --write index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md CHANGELOG.md",
+    "format:check": "prettier --check index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md CHANGELOG.md",
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepublishOnly": "npm run format:check && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
@@ -52,6 +63,14 @@
     "index.ts",
     "src",
     "README.md",
-    "LICENSE.md"
-  ]
+    "CHANGELOG.md",
+    "LICENSE.md",
+    "logo.jpg"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

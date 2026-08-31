@@ -1,8 +1,26 @@
 # pi-web-search
 
-Bounded, failure-aware web search and static-document retrieval for Pi.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arcanemachine/pi-web-search/main/logo.jpg" alt="pi-web-search logo" width="250" />
+</p>
+
+A [Pi](https://pi.dev) extension for bounded web search and static document tools.
+
+No package-specific configuration is required. Web search uses native DuckDuckGo first and falls back to SearXNG by default. Brave is an opt-in backend. The extension can read static web pages, search their extracted text, and summarize them with Pi's active model by default.
+
+> Like this extension? See [my other Pi extensions](https://github.com/arcanemachine/pi-projects).
+
+## Requirements
+
+- Pi 0.84.1 or later.
+- Node.js 22.19.0 or later.
+- Outbound HTTP(S) access for search and document tools.
+- A usable Pi model is required only for page summaries.
+- No separate command or Python installation for DuckDuckGo search.
 
 ## Installation
+
+### From GitHub
 
 Install the public Git package globally:
 
@@ -12,6 +30,16 @@ pi install git:github.com/arcanemachine/pi-web-search
 
 Pi clones the Git package, installs its declared JavaScript runtime dependencies, and loads the extension declared by its Pi manifest. Pi packages execute code with the user's permissions, so review the source before installing a package.
 
+### From npm
+
+After publication:
+
+```bash
+pi install npm:@arcanemachine/pi-web-search
+```
+
+### Project-local installation
+
 For one project only, install it locally:
 
 ```bash
@@ -19,6 +47,8 @@ pi install git:github.com/arcanemachine/pi-web-search -l
 ```
 
 A global installation writes user settings under `~/.pi/agent/settings.json`. `-l` writes project settings under `.pi/settings.json`; project packages load only after the project is trusted.
+
+### One invocation
 
 To try it for one Pi invocation without saving it to settings:
 
@@ -35,33 +65,6 @@ pi remove git:github.com/arcanemachine/pi-web-search
 ```
 
 Use `-l` when removing a project-local installation. Start or restart Pi after installing a package or changing its configuration, or use `/reload` while Pi is already running.
-
-### Node version managers and package installation
-
-`pi install` clones a Git package into Pi's managed package directory and runs `npm` from that checkout. A Node version selected only by the current project's local `.tool-versions` can stop applying when npm runs in the managed checkout. With asdf, this can produce `No version is set for nodejs` and npm exit code 126 even though Pi started successfully from the original project. This is an environment and toolchain-selection issue, not a `pi-web-search` runtime dependency failure.
-
-Before installing, verify that both commands work from a neutral directory outside the current repository:
-
-```bash
-cd /tmp
-node --version
-npm --version
-```
-
-Choose a Node version compatible with your installed Pi release and local package tooling. Depending on your setup, safe remedies include:
-
-- configure an appropriate home or global asdf Node selection using the asdf version and documentation installed on your system;
-- export `ASDF_NODEJS_VERSION` in the environment that launches `pi install`;
-- configure Pi's top-level `npmCommand` setting to use a stable Node/npm wrapper, as supported by Pi's package-management documentation.
-
-For a one-time asdf selection, use an installed version as the placeholder below rather than assuming a particular Node release:
-
-```bash
-ASDF_NODEJS_VERSION=<installed-node-version> \
-  pi install git:github.com/arcanemachine/pi-web-search
-```
-
-After correcting the Node selection, rerun the normal installation command above and confirm the package with `pi list`. Do not edit Pi's managed checkout, copy `node_modules`, bypass npm scripts or package security, or change this package's source to work around an environment-selection problem.
 
 ## Dependencies at a glance
 
@@ -326,12 +329,13 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
     "grepMaxChars": 12000,
     "grepMaxLimitChars": 40000,
     "summarizationEnabled": true,
+    "summarizerModel": "provider/model",
     "summarizerThinkingLevel": "low"
   }
 }
 ```
 
-The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. `summarizationEnabled` is true by default. Setting it to false gates execution and removes only `summarize_url_content` from Pi's active tool set/system prompt after reload; the registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax; when absent, summarization falls back to the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`; when omitted, provider defaults apply and the parent thinking level is never inherited. For the verified OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort` (`off` maps to `none` for Codex). Unsupported APIs and non-reasoning models fail before dispatch rather than silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
+The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Summarization is enabled by default. Set `summarizationEnabled` to `false` to disable execution and remove only `summarize_url_content` from Pi's active tool set and system prompt after reload; its registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax. When absent, summarization uses the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, provider defaults apply and the parent thinking level is not inherited. For the supported OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort`; `off` maps to `none` for Codex. Unsupported APIs and non-reasoning models fail before dispatch instead of silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
 
 A readable explicit summarizer setup is:
 
@@ -401,9 +405,8 @@ This is a legitimate result, not a backend failure. Fallback intentionally does 
 
 Static extraction does not execute JavaScript. Use Playwright or another JavaScript-capable browser when the needed content is rendered only in the browser.
 
-## Requirements and privacy
+## Privacy and limitations
 
-- Pi `0.84.1` or newer is required. The summarizer uses Pi's isolated `ModelRegistry.complete()` API; older Pi releases are not supported.
 - DuckDuckGo search requires no separate command or Python installation. It sends the query and caller network address directly to DuckDuckGo over HTTPS.
 - SearXNG mediates upstream connections but can observe the query. Its default URL is `http://127.0.0.1:8080`.
 - Brave receives the query and network information needed to provide API results. Review Brave's current API terms and retention practices; ordinary plans should not be assumed to provide zero-data retention.
@@ -433,4 +436,21 @@ Operational errors include stable codes such as `invalid_request`, `backend_unav
 
 ## Research workflow
 
-Search results are discovery aids; inspect a relevant source before relying on it. After finding a relevant single static page, prefer `summarize_url_content` when it is available and understanding, explaining, synthesizing, or evaluating that page would help complete the task. Call it directly rather than reading the page first merely to decide whether a summary would help. Use `read_url_content` for exact source text, quotations, code, commands, precise wording, manual inspection, or deliberate pagination, and use `grep_url_content` for targeted literal evidence. When subagents are available, delegate broad, multi-page, context-heavy, or cross-source research to a suitable research subagent. The read, grep, and search tools remain deterministic, while summarization is explicitly model-generated and isolated.
+Search results are discovery aids; inspect a relevant source before relying on them. Use `summarize_url_content` for a focused explanation of one static page. Use `read_url_content` for exact text, quotations, code, commands, or deliberate pagination. Use `grep_url_content` for targeted literal evidence. For broad, multi-page, or cross-source research, delegate to a suitable research subagent when available. Search, read, and grep stay deterministic; summarization is model-generated and isolated.
+
+## Development
+
+```bash
+npm install
+npm run format:check
+npm run typecheck
+npm test
+npm run build
+npm pack --dry-run
+```
+
+The package is loaded from its TypeScript entrypoint. It does not need a compiled runtime artifact.
+
+## License
+
+MIT. See [LICENSE.md](./LICENSE.md).

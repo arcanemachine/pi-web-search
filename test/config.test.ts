@@ -118,6 +118,13 @@ describe("pi-web-search configuration", () => {
     assert.deepEqual(config.backends, ["searxng", "duckduckgo", "brave"]);
   });
 
+  it("lists supported backends for an unknown backend", () => {
+    assert.throws(
+      () => resolveConfig({}, { "pi-web-search": { backends: ["other"] } }, {}),
+      /supported backends are duckduckgo, searxng, and brave/,
+    );
+  });
+
   it("reads the Brave key only from the environment", () => {
     const config = resolveConfig(
       {},

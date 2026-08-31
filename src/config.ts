@@ -215,7 +215,9 @@ function normalizeBackends(value: unknown): SearchBackendName[] {
       backend !== "searxng" &&
       backend !== "brave"
     ) {
-      throw new ConfigurationError(`unknown backend ${JSON.stringify(item)}`);
+      throw new ConfigurationError(
+        `unknown backend ${JSON.stringify(item)}; supported backends are duckduckgo, searxng, and brave`,
+      );
     }
     if (backends.includes(backend)) {
       throw new ConfigurationError(
