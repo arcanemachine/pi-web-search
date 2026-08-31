@@ -112,10 +112,10 @@ describe("pi-web-search configuration", () => {
   it("normalizes an ordered backend list", () => {
     const config = resolveConfig(
       {},
-      { "pi-web-search": { backends: [" SearXNG ", "DDGR", "BRAVE"] } },
+      { "pi-web-search": { backends: [" SearXNG ", "DUCKDUCKGO", "BRAVE"] } },
       {},
     );
-    assert.deepEqual(config.backends, ["searxng", "ddgr", "brave"]);
+    assert.deepEqual(config.backends, ["searxng", "duckduckgo", "brave"]);
   });
 
   it("reads the Brave key only from the environment", () => {
@@ -168,7 +168,7 @@ describe("pi-web-search configuration", () => {
     ["blank summarizer model", { summarizerModel: "   " }],
     ["empty backend list", { backends: [] }],
     ["unknown backend", { backends: ["other"] }],
-    ["duplicate backend", { backends: ["ddgr", "ddgr"] }],
+    ["duplicate backend", { backends: ["duckduckgo", "duckduckgo"] }],
     ["non-finite number", { searchTimeoutMs: Number.POSITIVE_INFINITY }],
     ["negative number", { searchTimeoutMs: -1 }],
     ["zero rate limit", { searchRateLimitPerMinute: 0 }],

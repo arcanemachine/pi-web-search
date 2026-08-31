@@ -43,14 +43,11 @@ function validateResultUrl(value: unknown): string | undefined {
   }
 }
 
-function normalizeResult(
-  value: unknown,
-  snippetKey: "content" | "abstract",
-): SearchResult | undefined {
+function normalizeResult(value: unknown): SearchResult | undefined {
   if (!isRecord(value)) return undefined;
   const title = typeof value.title === "string" ? value.title.trim() : "";
   const url = validateResultUrl(value.url);
-  const snippetValue = value[snippetKey];
+  const snippetValue = value.content;
   const snippet = typeof snippetValue === "string" ? snippetValue.trim() : "";
   if (!title || !url) return undefined;
 
@@ -61,23 +58,6 @@ function normalizeResult(
     snippet,
     ...(engine ? { engine } : {}),
   };
-}
-
-export function parseDdgrPayload(
-  value: unknown,
-): PayloadResult<SearchResult[]> {
-  if (!Array.isArray(value))
-    return parseError("ddgr JSON output must be an array");
-
-  const results: SearchResult[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const result = normalizeResult(value[index], "abstract");
-    if (!result) {
-      return parseError(`ddgr result ${index + 1} has an invalid title or URL`);
-    }
-    results.push(result);
-  }
-  return { ok: true, value: results };
 }
 
 function parseUnresponsiveEngines(value: unknown): PayloadResult<Diagnostic[]> {
@@ -118,7 +98,7 @@ export function parseSearxngPayload(
 
   const results: SearchResult[] = [];
   for (let index = 0; index < value.results.length; index += 1) {
-    const result = normalizeResult(value.results[index], "content");
+    const result = normalizeResult(value.results[index]);
     if (!result) {
       return parseError(
         `SearXNG result ${index + 1} has an invalid title or URL`,

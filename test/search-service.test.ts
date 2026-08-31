@@ -91,11 +91,13 @@ function backendMap(...backends: SearchBackend[]) {
 
 describe("ordered search service", () => {
   it("falls through only after an explicit operational error", async () => {
-    const ddgr = new FakeBackend("ddgr", async () => failure("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      failure("duckduckgo"),
+    );
     const searxng = new FakeBackend("searxng", async () => ok("searxng"));
     const service = new SearchService(
       config(),
-      backendMap(ddgr, searxng),
+      backendMap(duckduckgo, searxng),
       () => 0,
     );
 
@@ -103,33 +105,37 @@ describe("ordered search service", () => {
     assert.equal(outcome.status, "ok");
     assert.equal(outcome.provenance?.backend, "searxng");
     assert.equal(outcome.provenance?.attempts?.length, 2);
-    assert.equal(outcome.warnings?.[0].source, "ddgr");
+    assert.equal(outcome.warnings?.[0].source, "duckduckgo");
   });
 
   it("does not fall through after legitimate no-results", async () => {
-    const ddgr = new FakeBackend("ddgr", async () => noResults("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      noResults("duckduckgo"),
+    );
     const searxng = new FakeBackend("searxng", async () => ok("searxng"));
     const service = new SearchService(
       config(),
-      backendMap(ddgr, searxng),
+      backendMap(duckduckgo, searxng),
       () => 0,
     );
 
     const outcome = await service.search(request);
     assert.equal(outcome.status, "no_results");
-    assert.equal(ddgr.calls, 1);
+    assert.equal(duckduckgo.calls, 1);
     assert.equal(searxng.calls, 0);
   });
 
   it("allows a configured burst before returning local rate limiting", async () => {
-    const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      ok("duckduckgo"),
+    );
     const service = new SearchService(
       config({
-        backends: ["ddgr"],
+        backends: ["duckduckgo"],
         searchRateLimitPerMinute: 10,
         searchRateLimitBurst: 3,
       }),
-      backendMap(ddgr),
+      backendMap(duckduckgo),
       () => 1_000,
     );
 
@@ -145,16 +151,18 @@ describe("ordered search service", () => {
     const blocked = await service.search({ ...request, query: "fourth" });
     assert.equal(blocked.error?.code, "rate_limited");
     assert.equal(blocked.error?.retryAfterMs, 6_000);
-    assert.equal(ddgr.calls, 3);
+    assert.equal(duckduckgo.calls, 3);
   });
 
   it("returns immediate local rate limiting without backend fallback", async () => {
     let now = 1_000;
-    const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      ok("duckduckgo"),
+    );
     const searxng = new FakeBackend("searxng", async () => ok("searxng"));
     const service = new SearchService(
       config({ searchRateLimitPerMinute: 10, searchRateLimitBurst: 1 }),
-      backendMap(ddgr, searxng),
+      backendMap(duckduckgo, searxng),
       () => now,
     );
 
@@ -167,16 +175,18 @@ describe("ordered search service", () => {
       /Local process search token bucket exhausted \(10\/minute, burst 1\)/,
     );
     assert.equal(blocked.error?.retryAfterMs, 4_000);
-    assert.equal(ddgr.calls, 1);
+    assert.equal(duckduckgo.calls, 1);
     assert.equal(searxng.calls, 0);
   });
 
   it("serves completed cache hits before the limiter", async () => {
     let now = 1_000;
-    const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      ok("duckduckgo"),
+    );
     const service = new SearchService(
-      config({ backends: ["ddgr"] }),
-      backendMap(ddgr),
+      config({ backends: ["duckduckgo"] }),
+      backendMap(duckduckgo),
       () => now,
     );
 
@@ -184,7 +194,7 @@ describe("ordered search service", () => {
     now += 1;
     const cached = await service.search(request);
     assert.equal(cached.provenance?.cache?.status, "hit");
-    assert.equal(ddgr.calls, 1);
+    assert.equal(duckduckgo.calls, 1);
   });
 
   it("coalesces identical in-flight searches before the limiter", async () => {
@@ -194,50 +204,54 @@ describe("ordered search service", () => {
     const pending = new Promise<OutcomeEnvelope<SearchOutcomeData>>((done) => {
       resolve = done;
     });
-    const ddgr = new FakeBackend("ddgr", async () => pending);
+    const duckduckgo = new FakeBackend("duckduckgo", async () => pending);
     const service = new SearchService(
-      config({ backends: ["ddgr"] }),
-      backendMap(ddgr),
+      config({ backends: ["duckduckgo"] }),
+      backendMap(duckduckgo),
       () => 1_000,
     );
 
     const first = service.search(request);
     const second = service.search(request);
-    assert.equal(ddgr.calls, 1);
-    resolve?.(ok("ddgr"));
+    assert.equal(duckduckgo.calls, 1);
+    resolve?.(ok("duckduckgo"));
     await first;
     const coalesced = await second;
     assert.equal(coalesced.provenance?.cache?.status, "coalesced");
   });
 
   it("does not let forceRefresh bypass the limiter", async () => {
-    const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      ok("duckduckgo"),
+    );
     const service = new SearchService(
       config({
-        backends: ["ddgr"],
+        backends: ["duckduckgo"],
         searchRateLimitPerMinute: 10,
         searchRateLimitBurst: 1,
       }),
-      backendMap(ddgr),
+      backendMap(duckduckgo),
       () => 1_000,
     );
 
     await service.search(request);
     const blocked = await service.search({ ...request, forceRefresh: true });
     assert.equal(blocked.error?.code, "rate_limited");
-    assert.equal(ddgr.calls, 1);
+    assert.equal(duckduckgo.calls, 1);
   });
 
   it("allows a new dispatch when the next token has fully refilled", async () => {
     let now = 1_000;
-    const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      ok("duckduckgo"),
+    );
     const service = new SearchService(
       config({
-        backends: ["ddgr"],
+        backends: ["duckduckgo"],
         searchRateLimitPerMinute: 10,
         searchRateLimitBurst: 1,
       }),
-      backendMap(ddgr),
+      backendMap(duckduckgo),
       () => now,
     );
 
@@ -245,38 +259,42 @@ describe("ordered search service", () => {
     now += 6_000;
     const second = await service.search({ ...request, query: "different" });
     assert.equal(second.status, "ok");
-    assert.equal(ddgr.calls, 2);
+    assert.equal(duckduckgo.calls, 2);
   });
 
   it("does not cache operational errors", async () => {
     let now = 1_000;
-    const ddgr = new FakeBackend("ddgr", async () => failure("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      failure("duckduckgo"),
+    );
     const service = new SearchService(
       config({
-        backends: ["ddgr"],
+        backends: ["duckduckgo"],
         searchRateLimitPerMinute: 10,
         searchRateLimitBurst: 1,
       }),
-      backendMap(ddgr),
+      backendMap(duckduckgo),
       () => now,
     );
 
     assert.equal((await service.search(request)).status, "error");
     now += 6_000;
     assert.equal((await service.search(request)).status, "error");
-    assert.equal(ddgr.calls, 2);
+    assert.equal(duckduckgo.calls, 2);
   });
 
   it("lets forceRefresh bypass a completed cache entry after limiter capacity is available", async () => {
     let now = 1_000;
-    const ddgr = new FakeBackend("ddgr", async () => ok("ddgr"));
+    const duckduckgo = new FakeBackend("duckduckgo", async () =>
+      ok("duckduckgo"),
+    );
     const service = new SearchService(
       config({
-        backends: ["ddgr"],
+        backends: ["duckduckgo"],
         searchRateLimitPerMinute: 10,
         searchRateLimitBurst: 1,
       }),
-      backendMap(ddgr),
+      backendMap(duckduckgo),
       () => now,
     );
 
@@ -285,6 +303,6 @@ describe("ordered search service", () => {
     const refreshed = await service.search({ ...request, forceRefresh: true });
     assert.equal(refreshed.status, "ok");
     assert.equal(refreshed.provenance?.cache?.status, "miss");
-    assert.equal(ddgr.calls, 2);
+    assert.equal(duckduckgo.calls, 2);
   });
 });

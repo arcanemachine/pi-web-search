@@ -65,36 +65,30 @@ After correcting the Node selection, rerun the normal installation command above
 
 ## Dependencies at a glance
 
-| Capability               | Requirement                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `read_url_content`       | No external executable or service; requires outbound HTTP(S).                                                                        |
-| `grep_url_content`       | No external executable or service; requires outbound HTTP(S).                                                                        |
-| `search_web` via ddgr    | `ddgr` installed separately on the `PATH` visible to Pi.                                                                             |
-| `search_web` via SearXNG | A reachable SearXNG service with JSON enabled.                                                                                       |
-| `search_web` via Brave   | A Brave Search API subscription key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS.                                             |
-| HTML normalization       | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi.            |
-| `summarize_url_content`  | Optional model access through the active Pi model or configured `summarizerModel`; enabled by default; disableable by configuration. |
+| Capability                  | Requirement                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `read_url_content`          | No external executable or service; requires outbound HTTP(S).                                                                        |
+| `grep_url_content`          | No external executable or service; requires outbound HTTP(S).                                                                        |
+| `search_web` via DuckDuckGo | Outbound HTTPS to DuckDuckGo's HTML search endpoint; no external executable or service.                                              |
+| `search_web` via SearXNG    | A reachable SearXNG service with JSON enabled.                                                                                       |
+| `search_web` via Brave      | A Brave Search API subscription key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS.                                             |
+| HTML normalization          | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi.            |
+| `summarize_url_content`     | Optional model access through the active Pi model or configured `summarizerModel`; enabled by default; disableable by configuration. |
 
-You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. This package does not install or manage ddgr, SearXNG, or Brave credentials. The default backend order remains ddgr, then SearXNG; Brave is explicit opt-in.
+You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. The default backend order is `duckduckgo`, then SearXNG; Brave is explicit opt-in. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
 
 ## Choose a search backend
 
-### ddgr only
+### DuckDuckGo only
 
-This is the simplest service-free search setup. ddgr is an external executable that must be on the `PATH` visible to the process running Pi. It uses DuckDuckGo's HTML endpoint and can encounter transient DuckDuckGo blocking or throttling. Current upstream ddgr requires Python 3.10 or later; follow the [official installation guidance](https://github.com/jarun/ddgr) rather than relying on platform-specific commands here.
+DuckDuckGo is the default, service-free search setup. The package sends a standards-compliant form POST directly to `https://html.duckduckgo.com/html`, parses ordered HTML results, and returns bounded title, URL, and snippet fields. Region, safe-search, and recency options are mapped to the endpoint request. DuckDuckGo may transiently block or rate-limit automated requests; those responses are classified as retryable operational outcomes.
 
-Check availability from the same environment that launches Pi:
-
-```bash
-ddgr --version
-```
-
-Configure ddgr only:
+Configure DuckDuckGo only:
 
 ```json
 {
   "pi-web-search": {
-    "backends": ["ddgr"]
+    "backends": ["duckduckgo"]
   }
 }
 ```
@@ -137,7 +131,7 @@ If your instance uses another URL, substitute it in the check. Configure SearXNG
 }
 ```
 
-This avoids ddgr execution entirely.
+This keeps the configured backend limited to SearXNG.
 
 ### Brave only
 
@@ -172,12 +166,12 @@ A recommended key-holder configuration uses Brave first and SearXNG as an operat
 }
 ```
 
-### ddgr with SearXNG fallback
+### DuckDuckGo with SearXNG fallback
 
 ```json
 {
   "pi-web-search": {
-    "backends": ["ddgr", "searxng"],
+    "backends": ["duckduckgo", "searxng"],
     "searxngUrl": "http://127.0.0.1:8080"
   }
 }
@@ -185,7 +179,7 @@ A recommended key-holder configuration uses Brave first and SearXNG as an operat
 
 With this configuration:
 
-1. ddgr is attempted first.
+1. DuckDuckGo is attempted first.
 2. SearXNG is attempted only after an evidenced operational error.
 3. Legitimate `no_results` does not trigger fallback.
 4. Local process rate limiting does not dispatch backends.
@@ -235,7 +229,7 @@ Searches the configured backend order only.
 }
 ```
 
-The default order is external `ddgr`, then SearXNG. The next backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `forceRefresh` bypasses completed cache entries, not the limiter. The visible result is a numbered Markdown list of titles, URLs, snippets, backend metadata, and warnings; the structured `details` field retains the complete bounded outcome.
+The default order is `duckduckgo`, then SearXNG. The next backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `limit` applies to one initial DuckDuckGo HTML page; the backend does not paginate. `forceRefresh` bypasses completed cache entries, not the limiter. The visible result is a numbered Markdown list of titles, URLs, snippets, backend metadata, and warnings; the structured `details` field retains the complete bounded outcome.
 
 ### `read_url_content`
 
@@ -302,7 +296,7 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
 ```json
 {
   "pi-web-search": {
-    "backends": ["ddgr", "searxng"],
+    "backends": ["duckduckgo", "searxng"],
     "searxngUrl": "http://127.0.0.1:8080",
     "searchTimeoutMs": 10000,
     "searchCacheTtlSeconds": 120,
@@ -359,11 +353,9 @@ A readable explicit summarizer setup is:
 
 For Brave, this usually means `PI_WEB_SEARCH_BRAVE_API_KEY` is missing or blank. Export it in the environment visible to Pi and reload or restart Pi. A 401 means Brave rejected the subscription token; check the key in the official Brave account console without placing it in settings.
 
-For ddgr, this usually means ddgr is missing or is not on the `PATH` visible to Pi. Run `ddgr --version` from the environment that launches Pi, then install ddgr or remove it from the configured backend list.
+### `blocked` from DuckDuckGo or Brave
 
-### `blocked` from ddgr or Brave
-
-DuckDuckGo can return transient blocking evidence. The known `HTTP Error 202: Accepted` response is classified as `blocked`. Brave HTTP 403 is also classified as `blocked`; check account permissions and service terms. Do not repeatedly hammer either service; wait or configure another backend. No fixed cooldown is guaranteed.
+DuckDuckGo can return transient blocking evidence. DuckDuckGo HTTP 202 or 403 responses, dedicated challenge pages, and other narrowly recognized blocking evidence are classified as `blocked`. Brave HTTP 403 is also classified as `blocked`; check account permissions and service terms. Do not repeatedly hammer either service; wait or configure another backend. No fixed cooldown is guaranteed.
 
 ### `fetch_failed` from SearXNG
 
@@ -383,11 +375,11 @@ HTTP 403 can mean that JSON is disabled, a reverse proxy denied the request, or 
 
 ### `rate_limited`
 
-Distinguish the local process token bucket from DuckDuckGo/ddgr throttling, a SearXNG instance HTTP 429, SearXNG engine diagnostics, and Brave HTTP 429. Brave rate limits include `retryAfterMs` when the response supplies usable reset information. Honor `retryAfterMs` when present, avoid immediate repeated calls, and inspect provenance.
+Distinguish the local process token bucket from DuckDuckGo HTTP 429 throttling, a SearXNG instance HTTP 429, SearXNG engine diagnostics, and Brave HTTP 429. Brave rate limits include `retryAfterMs` when the response supplies usable reset information. Honor `retryAfterMs` when present, avoid immediate repeated calls, and inspect provenance.
 
 ### `timeout`
 
-A backend or remote service exceeded `searchTimeoutMs`. Check service health before increasing the timeout; tune it only when the environment requires it.
+A backend or remote service exceeded `searchTimeoutMs`. For DuckDuckGo, the timeout covers response fetching and body reading. Check service health before increasing it; tune it only when the environment requires it.
 
 Brave query limits are also backend-local: queries over 400 Unicode characters or 50 whitespace-delimited words return `invalid_request` without truncation. A later configured backend may still be attempted.
 
@@ -395,9 +387,11 @@ Brave query limits are also backend-local: queries over 400 Unicode characters o
 
 Brave HTTP 422 means the API rejected the request parameters; check the query limits and current API documentation. Review your account's quota and billing terms in the official Brave console and pricing page before enabling this backend for repeated searches.
 
-### `parse_failed` from SearXNG
+### `parse_failed`
 
-Possible causes include HTML instead of JSON, disabled JSON, a proxy error page, the wrong endpoint, or an unsupported payload. Test the exact `/search?...&format=json` endpoint.
+DuckDuckGo responses must be recognizable HTML search pages. Incompatible content types, malformed result containers, unsafe destinations, unrelated pages, and responses over 2 MiB are rejected.
+
+For SearXNG, possible causes include HTML instead of JSON, disabled JSON, a proxy error page, the wrong endpoint, or an unsupported payload. Test the exact `/search?...&format=json` endpoint.
 
 ### `no_results`
 
@@ -410,8 +404,7 @@ Static extraction does not execute JavaScript. Use Playwright or another JavaScr
 ## Requirements and privacy
 
 - Pi `0.84.1` or newer is required. The summarizer uses Pi's isolated `ModelRegistry.complete()` API; older Pi releases are not supported.
-- [`ddgr`](https://github.com/jarun/ddgr) must be installed separately on `PATH` to use that backend. This package never bundles, downloads, or installs it.
-- Direct `ddgr` use sends the query and caller network address to DuckDuckGo.
+- DuckDuckGo search requires no separate command or Python installation. It sends the query and caller network address directly to DuckDuckGo over HTTPS.
 - SearXNG mediates upstream connections but can observe the query. Its default URL is `http://127.0.0.1:8080`.
 - Brave receives the query and network information needed to provide API results. Review Brave's current API terms and retention practices; ordinary plans should not be assumed to provide zero-data retention.
 - The Brave subscription key is read only from `PI_WEB_SEARCH_BRAVE_API_KEY`, never from settings, and is not included in model-visible output. Search results may be cached locally without the key.

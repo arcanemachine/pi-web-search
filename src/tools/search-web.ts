@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExecResult } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateChars } from "../bounds.js";
 import type { PiWebSearchConfig } from "../config.js";
 import {
@@ -15,7 +15,10 @@ import { formatOutcome } from "../format.js";
 import { renderToolCall, renderToolResult } from "./rendering.js";
 import type { SearchBackend } from "../search/backend.js";
 import { BraveBackend } from "../search/brave.js";
-import { DdgrBackend, type CommandExecutor } from "../search/ddgr.js";
+import {
+  DuckDuckGoBackend,
+  type DuckDuckGoDependencies,
+} from "../search/duckduckgo.js";
 import { SearchService } from "../search/service.js";
 import { SearxngBackend } from "../search/searxng.js";
 import {
@@ -26,7 +29,6 @@ import {
 
 export interface SearchToolDependencies {
   fetch: typeof globalThis.fetch;
-  execute: CommandExecutor;
   now(): number;
 }
 
@@ -34,11 +36,9 @@ export interface SearchToolController {
   register(): void;
 }
 
-function defaultDependencies(pi: ExtensionAPI): SearchToolDependencies {
+function defaultDependencies(): SearchToolDependencies {
   return {
     fetch: globalThis.fetch,
-    execute: (command, args, options): Promise<ExecResult> =>
-      pi.exec(command, args, options),
     now: Date.now,
   };
 }
@@ -165,7 +165,7 @@ function boundOutcome(
 export function createSearchToolController(
   pi: ExtensionAPI,
   getConfig: () => PiWebSearchConfig,
-  dependencies: SearchToolDependencies = defaultDependencies(pi),
+  dependencies: SearchToolDependencies = defaultDependencies(),
 ): SearchToolController {
   let serviceConfig: PiWebSearchConfig | undefined;
   let service: SearchService | undefined;
@@ -175,8 +175,11 @@ export function createSearchToolController(
       serviceConfig = config;
       const backends = new Map<SearchBackendName, SearchBackend>();
       backends.set(
-        "ddgr",
-        new DdgrBackend(dependencies.execute, dependencies.now),
+        "duckduckgo",
+        new DuckDuckGoBackend({
+          fetch: dependencies.fetch,
+          now: dependencies.now,
+        } satisfies DuckDuckGoDependencies),
       );
       backends.set(
         "searxng",
