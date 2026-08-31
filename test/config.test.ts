@@ -7,6 +7,49 @@ import {
 } from "../src/config.js";
 
 describe("pi-web-search configuration", () => {
+  it("defaults summarization on and merges its settings", () => {
+    const defaults = resolveConfig({}, {}, {});
+    assert.equal(defaults.summarizationEnabled, true);
+    assert.equal(defaults.summarizerModel, undefined);
+    assert.equal(defaults.summarizerThinkingLevel, undefined);
+
+    const config = resolveConfig(
+      {
+        "pi-web-search": {
+          summarizationEnabled: false,
+          summarizerModel: "openai/gpt-5",
+          summarizerThinkingLevel: "low",
+        },
+      },
+      { "pi-web-search": { summarizationEnabled: true } },
+      {},
+    );
+    assert.equal(config.summarizationEnabled, true);
+    assert.equal(config.summarizerModel, "openai/gpt-5");
+    assert.equal(config.summarizerThinkingLevel, "low");
+  });
+
+  it("accepts every summarizer thinking level", () => {
+    for (const level of [
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]) {
+      assert.equal(
+        resolveConfig(
+          {},
+          { "pi-web-search": { summarizerThinkingLevel: level } },
+          {},
+        ).summarizerThinkingLevel,
+        level,
+      );
+    }
+  });
+
   it("merges global and project package settings by property", () => {
     const config = resolveConfig(
       {
@@ -110,6 +153,19 @@ describe("pi-web-search configuration", () => {
   });
 
   for (const [name, settings] of [
+    ["invalid summarization toggle", { summarizationEnabled: "true" }],
+    [
+      "invalid summarizer thinking level",
+      { summarizerThinkingLevel: "sometimes" },
+    ],
+    ["blank summarizer thinking level", { summarizerThinkingLevel: "   " }],
+    ["non-string summarizer thinking level", { summarizerThinkingLevel: 1 }],
+    ["invalid summarizer model", { summarizerModel: "not-a-model" }],
+    [
+      "oversized summarizer model",
+      { summarizerModel: `provider/${"m".repeat(500)}` },
+    ],
+    ["blank summarizer model", { summarizerModel: "   " }],
     ["empty backend list", { backends: [] }],
     ["unknown backend", { backends: ["other"] }],
     ["duplicate backend", { backends: ["ddgr", "ddgr"] }],

@@ -7,6 +7,19 @@ const PACKAGE_KEY = "pi-web-search";
 const PROJECT_CONFIG_DIR = ".pi";
 const PI_MAX_OUTPUT_BYTES = 50 * 1024;
 
+export const SUMMARIZER_THINKING_LEVELS = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+
+export type SummarizerThinkingLevel =
+  (typeof SUMMARIZER_THINKING_LEVELS)[number];
+
 export interface PiWebSearchConfig {
   backends: SearchBackendName[];
   searxngUrl: string;
@@ -38,6 +51,9 @@ export interface PiWebSearchConfig {
   grepMaxLimitMatches: number;
   grepMaxChars: number;
   grepMaxLimitChars: number;
+  summarizationEnabled: boolean;
+  summarizerModel?: string;
+  summarizerThinkingLevel?: SummarizerThinkingLevel;
 }
 
 export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
@@ -70,6 +86,7 @@ export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
   grepMaxLimitMatches: 100,
   grepMaxChars: 12_000,
   grepMaxLimitChars: 40_000,
+  summarizationEnabled: true,
 });
 
 const NUMERIC_KEYS = [
@@ -134,7 +151,14 @@ const MAXIMUMS: Record<NumericKey, number> = {
   grepMaxLimitChars: 40_000,
 };
 
-const KNOWN_KEYS = new Set<string>(["backends", "searxngUrl", ...NUMERIC_KEYS]);
+const KNOWN_KEYS = new Set<string>([
+  "backends",
+  "searxngUrl",
+  "summarizationEnabled",
+  "summarizerModel",
+  "summarizerThinkingLevel",
+  ...NUMERIC_KEYS,
+]);
 
 export class ConfigurationError extends Error {
   constructor(message: string) {
@@ -263,6 +287,46 @@ function envOverrides(
   return result;
 }
 
+function normalizeSummarizerThinkingLevel(
+  value: unknown,
+): SummarizerThinkingLevel {
+  if (
+    typeof value !== "string" ||
+    !SUMMARIZER_THINKING_LEVELS.includes(value as SummarizerThinkingLevel)
+  ) {
+    throw new ConfigurationError(
+      `summarizerThinkingLevel must be one of ${SUMMARIZER_THINKING_LEVELS.join(", ")}`,
+    );
+  }
+  return value as SummarizerThinkingLevel;
+}
+
+function normalizeSummarizerModel(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new ConfigurationError(
+      "summarizerModel must be a non-empty provider/model string",
+    );
+  }
+  const model = value.trim();
+  if ([...model].length > 500) {
+    throw new ConfigurationError(
+      "summarizerModel must not exceed 500 characters",
+    );
+  }
+  const separator = model.indexOf("/");
+  if (
+    separator <= 0 ||
+    separator === model.length - 1 ||
+    /\s/.test(model.slice(0, separator)) ||
+    /\s/.test(model.slice(separator + 1))
+  ) {
+    throw new ConfigurationError(
+      "summarizerModel must use provider/model syntax",
+    );
+  }
+  return model;
+}
+
 function validateRelationships(config: PiWebSearchConfig): void {
   if (config.searchMaxResults > config.searchMaxLimitResults) {
     throw new ConfigurationError(
@@ -328,6 +392,20 @@ export function resolveConfig(
   }
   if (merged.braveApiKey !== undefined) {
     config.braveApiKey = merged.braveApiKey as string;
+  }
+  if (merged.summarizationEnabled !== undefined) {
+    if (typeof merged.summarizationEnabled !== "boolean") {
+      throw new ConfigurationError("summarizationEnabled must be a boolean");
+    }
+    config.summarizationEnabled = merged.summarizationEnabled;
+  }
+  if (merged.summarizerModel !== undefined) {
+    config.summarizerModel = normalizeSummarizerModel(merged.summarizerModel);
+  }
+  if (merged.summarizerThinkingLevel !== undefined) {
+    config.summarizerThinkingLevel = normalizeSummarizerThinkingLevel(
+      merged.summarizerThinkingLevel,
+    );
   }
   for (const key of NUMERIC_KEYS) {
     if (merged[key] !== undefined) {

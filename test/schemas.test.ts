@@ -5,7 +5,9 @@ import {
   GrepUrlContentParams,
   ReadUrlContentParams,
   SearchWebParams,
+  SummarizeUrlContentParams,
   validateGrepUrlContentRequest,
+  validateSummarizeUrlContentRequest,
   validateReadUrlContentRequest,
   validateSearchWebRequest,
 } from "../src/tools/schemas.js";
@@ -20,6 +22,40 @@ describe("public request schemas", () => {
         timeRange: "month",
       }),
       true,
+    );
+  });
+
+  it("accepts only the stable summarizer shape", () => {
+    assert.equal(
+      Value.Check(SummarizeUrlContentParams, {
+        url: "https://example.com",
+        objective: "What are the key points?",
+        mode: "main",
+        selector: "main",
+        forceRefresh: true,
+      }),
+      true,
+    );
+    assert.equal(
+      Value.Check(SummarizeUrlContentParams, {
+        url: "https://example.com",
+        model: "openai/gpt-5",
+      }),
+      false,
+    );
+    assert.equal(
+      validateSummarizeUrlContentRequest({
+        url: "https://example.com",
+        objective: "   ",
+      })?.code,
+      "invalid_request",
+    );
+    assert.equal(
+      validateSummarizeUrlContentRequest({
+        url: "https://example.com",
+        objective: "x".repeat(4_001),
+      })?.code,
+      "invalid_request",
     );
   });
 

@@ -12,6 +12,7 @@ import {
   type SearchRequest,
 } from "../contracts.js";
 import { formatOutcome } from "../format.js";
+import { renderToolCall, renderToolResult } from "./rendering.js";
 import type { SearchBackend } from "../search/backend.js";
 import { BraveBackend } from "../search/brave.js";
 import { DdgrBackend, type CommandExecutor } from "../search/ddgr.js";
@@ -207,10 +208,20 @@ export function createSearchToolController(
         promptGuidelines: [
           "Search precisely and refine only after inspecting results.",
           "After rate_limited, wait error.retryAfterMs before retrying.",
-          "Treat search snippets as discovery aids; read sources before citing.",
+          "Treat search snippets as discovery aids; inspect a relevant source before relying on it.",
+          "After finding a relevant single static page, prefer summarize_url_content when it is available and understanding, explaining, synthesizing, or evaluating that page would help complete the task; this is the normal semantic-consumption path when summarization is enabled.",
+          "Do not read a page first merely to decide whether a summary would help; use read_url_content only when exact source text, quotations, code, commands, precise wording, or deliberate pagination is needed.",
           "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
         ],
         parameters: SearchWebParams,
+
+        renderCall(args, theme) {
+          return renderToolCall("search_web", args, theme);
+        },
+
+        renderResult(result, { expanded }, theme) {
+          return renderToolResult("search_web", result, expanded, theme);
+        },
 
         async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
           const config = getConfig();

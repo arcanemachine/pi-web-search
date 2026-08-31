@@ -14,5 +14,6 @@ export default function piWebSearchExtension(pi: ExtensionAPI): void {
     config.refresh(ctx.cwd, true);
     documentTools.register();
     searchTool.register();
+    documentTools.synchronizeActivation();
   });
 }

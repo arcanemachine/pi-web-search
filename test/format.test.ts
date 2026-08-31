@@ -47,6 +47,70 @@ describe("outcome formatter", () => {
     }
   });
 
+  it("renders readable Markdown for search, grep, and summary outcomes", () => {
+    const search = formatOutcome({
+      operation: "search_web",
+      status: "ok",
+      summary: "Found results",
+      data: {
+        query: "pi",
+        results: [
+          {
+            title: "Pi docs",
+            url: "https://example.com/docs",
+            snippet: "Useful documentation",
+          },
+        ],
+      },
+    });
+    assert.match(search.content[0].text, /^# Search results/);
+    assert.match(search.content[0].text, /\[Pi docs\]/);
+    assert.doesNotMatch(search.content[0].text, /\"results\"/);
+
+    const grep = formatOutcome({
+      operation: "grep_url_content",
+      status: "ok",
+      summary: "Found a match",
+      data: {
+        query: "target",
+        matches: [
+          {
+            line: 3,
+            endLine: 3,
+            quote: "target value",
+            startOffset: 0,
+            endOffset: 12,
+            quoteStartOffset: 0,
+            quoteEndOffset: 12,
+            matchCount: 1,
+          },
+        ],
+        totalMatches: 1,
+      },
+    });
+    assert.match(grep.content[0].text, /^# Literal matches/);
+    assert.match(grep.content[0].text, /> target value/);
+
+    const summary = formatOutcome({
+      operation: "summarize_url_content",
+      status: "ok",
+      summary: "Generated summary",
+      data: {
+        summary: "The useful generated answer.",
+        generation: {
+          provider: "fake",
+          model: "model",
+          selection: "active",
+          modelCalls: 1,
+          documentToolCalls: 0,
+        },
+      },
+    });
+    assert.match(summary.content[0].text, /^# Summary/);
+    assert.match(summary.content[0].text, /useful generated answer/);
+    assert.doesNotMatch(summary.content[0].text, /\"generation\"/);
+  });
+
   it("returns non-empty content for every operational error code", () => {
     for (const code of OPERATIONAL_ERROR_CODES) {
       const formatted = formatOutcome({

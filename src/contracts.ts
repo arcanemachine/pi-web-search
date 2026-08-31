@@ -1,3 +1,5 @@
+import type { SummarizerThinkingLevel } from "./config.js";
+
 export const OPERATIONAL_ERROR_CODES = [
   "invalid_request",
   "backend_unavailable",
@@ -8,13 +10,15 @@ export const OPERATIONAL_ERROR_CODES = [
   "backend_failed",
   "parse_failed",
   "cursor_expired",
+  "generation_failed",
 ] as const;
 
 export type OperationalErrorCode = (typeof OPERATIONAL_ERROR_CODES)[number];
 export type ToolOperation =
   | "search_web"
   | "read_url_content"
-  | "grep_url_content";
+  | "grep_url_content"
+  | "summarize_url_content";
 export type OutcomeStatus = "ok" | "no_results" | "no_match" | "error";
 export type SearchBackendName = "ddgr" | "searxng" | "brave";
 export type CacheStatus = "miss" | "hit" | "coalesced" | "bypassed";
@@ -115,6 +119,30 @@ export interface GrepOutcomeData {
   totalMatches: number;
   cursor?: string;
   nextCursor?: string;
+}
+
+export interface SummaryGeneration {
+  provider: string;
+  model: string;
+  selection: "configured" | "active";
+  modelCalls: number;
+  documentToolCalls: number;
+  thinkingLevel?: SummarizerThinkingLevel;
+}
+
+export interface SummarizeOutcomeData {
+  summary: string;
+  title?: string;
+  objective?: string;
+  generation: SummaryGeneration;
+}
+
+export interface SummarizeUrlContentRequest {
+  url: string;
+  objective?: string;
+  mode?: "main" | "full";
+  selector?: string;
+  forceRefresh?: boolean;
 }
 
 export interface OutcomeEnvelope<T = unknown> {

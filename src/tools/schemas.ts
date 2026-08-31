@@ -93,6 +93,42 @@ export const ReadUrlContentParams = Type.Object(
   { additionalProperties: false },
 );
 
+export const SummarizeUrlContentParams = Type.Object(
+  {
+    url: Type.String({
+      minLength: 1,
+      maxLength: 2_048,
+      description: "HTTP(S) URL without credentials",
+    }),
+    objective: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 4_000,
+        description: "Question or objective for the generated summary",
+      }),
+    ),
+    mode: Type.Optional(
+      Type.String({
+        enum: ["main", "full"],
+        description: "Main content (default) or full document",
+      }),
+    ),
+    selector: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 500,
+        description: "CSS selector for the content root",
+      }),
+    ),
+    forceRefresh: Type.Optional(
+      Type.Boolean({
+        description: "Bypass the completed snapshot cache",
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
+
 export const GrepUrlContentParams = Type.Object(
   {
     url: Type.String({
@@ -151,6 +187,9 @@ export const GrepUrlContentParams = Type.Object(
 export type SearchWebParams = Static<typeof SearchWebParams>;
 export type ReadUrlContentParams = Static<typeof ReadUrlContentParams>;
 export type GrepUrlContentParams = Static<typeof GrepUrlContentParams>;
+export type SummarizeUrlContentParams = Static<
+  typeof SummarizeUrlContentParams
+>;
 
 function invalid(message: string): OperationalError {
   return operationalError("invalid_request", message, false);
@@ -226,6 +265,26 @@ export function validateReadUrlContentRequest(
   if (request.cursor && request.forceRefresh) {
     return invalid("cursor cannot be combined with forceRefresh");
   }
+  return undefined;
+}
+
+export function validateSummarizeUrlContentRequest(
+  value: unknown,
+): OperationalError | undefined {
+  const error = schemaError(
+    "summarize_url_content",
+    SummarizeUrlContentParams,
+    value,
+  );
+  if (error) return error;
+  const request = value as SummarizeUrlContentParams;
+  const urlError = validateHttpUrl(request.url);
+  if (urlError) return urlError;
+  if (request.objective !== undefined && !request.objective.trim()) {
+    return invalid("objective must not be blank");
+  }
+  const selectorError = validateSelector(request.selector);
+  if (selectorError) return selectorError;
   return undefined;
 }
 

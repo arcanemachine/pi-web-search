@@ -7,6 +7,8 @@ import { createSearchToolController } from "../src/tools/search-web.js";
 
 interface RegisteredTool {
   name: string;
+  renderCall?: (...args: unknown[]) => unknown;
+  renderResult?: (...args: unknown[]) => unknown;
   promptGuidelines?: string[];
   execute(
     toolCallId: string,
@@ -60,10 +62,14 @@ describe("search_web tool", () => {
     controller.register();
     const tool = tools.find((candidate) => candidate.name === "search_web");
     assert.ok(tool);
+    assert.equal(typeof tool.renderCall, "function");
+    assert.equal(typeof tool.renderResult, "function");
     const promptGuidelines = tool.promptGuidelines?.join("\n") ?? "";
     assert.match(promptGuidelines, /rate_limited/);
     assert.match(promptGuidelines, /error\.retryAfterMs/);
     assert.match(promptGuidelines, /discovery aids/);
+    assert.match(promptGuidelines, /prefer summarize_url_content/);
+    assert.match(promptGuidelines, /exact source text/);
 
     const result = await tool.execute(
       "call",

@@ -21,6 +21,7 @@ import {
   wasFormatTruncated,
   type DocumentToolRuntime,
 } from "./document-shared.js";
+import { renderToolCall, renderToolResult } from "./rendering.js";
 
 export function registerGrepUrlContentTool(
   pi: ExtensionAPI,
@@ -33,12 +34,21 @@ export function registerGrepUrlContentTool(
     description: `Find literal text in a normalized document snapshot (default ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters; requests are clamped).`,
     promptSnippet: "Find text in a static URL snapshot.",
     promptGuidelines: [
-      "Use grep_url_content for targeted literal extraction from known or likely static URLs.",
-      "Use cursors to continue the exact cached snapshot.",
+      "Use grep_url_content for targeted literal evidence from a known or likely static URL.",
+      "For understanding or explaining one known static page, prefer summarize_url_content when it is available instead of collecting broad raw text.",
+      "Use cursors to continue exact cached matches when deliberate pagination is needed.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
       "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
     ],
     parameters: GrepUrlContentParams,
+
+    renderCall(args, theme) {
+      return renderToolCall("grep_url_content", args, theme);
+    },
+
+    renderResult(result, { expanded }, theme) {
+      return renderToolResult("grep_url_content", result, expanded, theme);
+    },
 
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
       const runtime = getRuntime();

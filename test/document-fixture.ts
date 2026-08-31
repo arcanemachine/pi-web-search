@@ -66,6 +66,11 @@ export async function createDocumentFixture(): Promise<DocumentFixture> {
       response.end('{"name":"fixture","items":[1,2]}');
       return;
     }
+    if (url.pathname === "/fenced-json") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end('{"text":"```\\n~~~"}');
+      return;
+    }
     if (url.pathname === "/shell") {
       response.writeHead(200, { "Content-Type": "text/html" });
       response.end(

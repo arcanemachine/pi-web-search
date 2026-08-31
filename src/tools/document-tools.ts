@@ -5,6 +5,7 @@ import { DocumentService } from "../documents/service.js";
 import type { DocumentToolRuntime } from "./document-shared.js";
 import { registerGrepUrlContentTool } from "./grep-url-content.js";
 import { registerReadUrlContentTool } from "./read-url-content.js";
+import { registerSummarizeUrlContentTool } from "./summarize-url-content.js";
 
 export interface DocumentToolDependencies {
   fetch: typeof globalThis.fetch;
@@ -14,6 +15,32 @@ export interface DocumentToolDependencies {
 
 export interface DocumentToolsController {
   register(): void;
+  synchronizeActivation(): void;
+}
+
+const SUMMARIZER_TOOL_NAME = "summarize_url_content";
+
+function synchronizeSummarizerActivation(
+  pi: ExtensionAPI,
+  enabled: boolean,
+): void {
+  const active = pi.getActiveTools();
+  const next = enabled
+    ? active.filter(
+        (name, index) =>
+          name !== SUMMARIZER_TOOL_NAME ||
+          active.indexOf(SUMMARIZER_TOOL_NAME) === index,
+      )
+    : active.filter((name) => name !== SUMMARIZER_TOOL_NAME);
+  if (enabled && !next.includes(SUMMARIZER_TOOL_NAME)) {
+    next.push(SUMMARIZER_TOOL_NAME);
+  }
+  if (
+    next.length !== active.length ||
+    next.some((name, index) => name !== active[index])
+  ) {
+    pi.setActiveTools(next);
+  }
 }
 
 export function createDocumentToolsController(
@@ -48,6 +75,13 @@ export function createDocumentToolsController(
       getRuntime();
       registerReadUrlContentTool(pi, getRuntime);
       registerGrepUrlContentTool(pi, getRuntime);
+      registerSummarizeUrlContentTool(pi, getRuntime);
+    },
+    synchronizeActivation() {
+      synchronizeSummarizerActivation(
+        pi,
+        getRuntime().config.summarizationEnabled,
+      );
     },
   };
 }

@@ -33,7 +33,7 @@
     "node-html-markdown": "^2.0.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.74.0",
+    "@earendil-works/pi-coding-agent": "^0.84.1",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^25.3.3",
     "prettier": "^3.8.3",
@@ -41,7 +41,7 @@
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": ">=0.84.1"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": {

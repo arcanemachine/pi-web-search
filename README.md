@@ -65,14 +65,15 @@ After correcting the Node selection, rerun the normal installation command above
 
 ## Dependencies at a glance
 
-| Capability               | Requirement                                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `read_url_content`       | No external executable or service; requires outbound HTTP(S).                                                             |
-| `grep_url_content`       | No external executable or service; requires outbound HTTP(S).                                                             |
-| `search_web` via ddgr    | `ddgr` installed separately on the `PATH` visible to Pi.                                                                  |
-| `search_web` via SearXNG | A reachable SearXNG service with JSON enabled.                                                                            |
-| `search_web` via Brave   | A Brave Search API subscription key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS.                                  |
-| HTML normalization       | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi. |
+| Capability               | Requirement                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `read_url_content`       | No external executable or service; requires outbound HTTP(S).                                                                        |
+| `grep_url_content`       | No external executable or service; requires outbound HTTP(S).                                                                        |
+| `search_web` via ddgr    | `ddgr` installed separately on the `PATH` visible to Pi.                                                                             |
+| `search_web` via SearXNG | A reachable SearXNG service with JSON enabled.                                                                                       |
+| `search_web` via Brave   | A Brave Search API subscription key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS.                                             |
+| HTML normalization       | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi.            |
+| `summarize_url_content`  | Optional model access through the active Pi model or configured `summarizerModel`; enabled by default; disableable by configuration. |
 
 You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. This package does not install or manage ddgr, SearXNG, or Brave credentials. The default backend order remains ddgr, then SearXNG; Brave is explicit opt-in.
 
@@ -217,6 +218,8 @@ Search snippets are for discovery; read the source before citing it.
 
 ## Tools
 
+All four tools return bounded, human-readable Markdown in their model-visible `content`; machine-readable outcomes remain in the structured `details` field. In Pi's interactive UI, tool rows provide compact invocation/result previews when collapsed and the complete bounded readable result when expanded. They honor Pi's global tool-output expansion setting, so the normal Pi expand/collapse controls work without a package-specific setting.
+
 ### `search_web`
 
 Searches the configured backend order only.
@@ -232,11 +235,11 @@ Searches the configured backend order only.
 }
 ```
 
-The default order is external `ddgr`, then SearXNG. The next backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `forceRefresh` bypasses completed cache entries, not the limiter.
+The default order is external `ddgr`, then SearXNG. The next backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `forceRefresh` bypasses completed cache entries, not the limiter. The visible result is a numbered Markdown list of titles, URLs, snippets, backend metadata, and warnings; the structured `details` field retains the complete bounded outcome.
 
 ### `read_url_content`
 
-Fetches an HTTP(S) URL, creates a bounded normalized snapshot, and returns one stable page.
+Fetches an HTTP(S) URL, creates a bounded normalized snapshot, and returns one stable page. The model-visible result is human-readable Markdown: normalized HTML/Markdown is shown directly, JSON is shown in a fenced `json` block, and a compact footer shows the final source URL, character range, truncation state, continuation cursor, and concise warnings. The structured `details` field retains the bounded machine-readable outcome, provenance, and exact normalized page content.
 
 ```ts
 {
@@ -249,11 +252,27 @@ Fetches an HTTP(S) URL, creates a bounded normalized snapshot, and returns one s
 }
 ```
 
-HTML is parsed without executing scripts and converted to Markdown. Plain text, Markdown, XML text, and JSON use native normalization. Main-mode extraction selects an explicit CSS selector or deterministically prefers `main`, `[role="main"]`, and `article`; sectioned body-only documents preserve their structured body, while weakly structured pages use best-effort Mozilla Readability extraction before falling back to the body. Full mode and selectors remain deterministic. JavaScript-dependent content is not rendered.
+HTML is parsed without executing scripts and converted to Markdown. Plain text, Markdown, XML text, and JSON use native normalization. Read errors are shown as concise Markdown with a stable error code; full bounded error details remain in `details`. Main-mode extraction selects an explicit CSS selector or deterministically prefers `main`, `[role="main"]`, and `article`; sectioned body-only documents preserve their structured body, while weakly structured pages use best-effort Mozilla Readability extraction before falling back to the body. Full mode and selectors remain deterministic. JavaScript-dependent content is not rendered.
+
+### `summarize_url_content`
+
+Generates a bounded objective-focused answer from one normalized static document through an isolated model request. The tool remains registered even when execution is disabled, so changing `summarizationEnabled` does not change its public schema. Summarization is enabled by default; setting it to `false` removes only this tool from Pi's active tool set and system prompt after `/reload` or restart, while direct bypass calls return an explicit disabled error.
+
+```ts
+{
+  url: string;
+  objective?: string;
+  mode?: "main" | "full";
+  selector?: string;
+  forceRefresh?: boolean;
+}
+```
+
+Summarization is enabled by default. `summarizerModel` optionally selects a configured `provider/model`; when it is absent, the active Pi model is used. An invalid configured model never silently falls back. Successful results identify the actual provider/model and configured thinking level when present, preserve source provenance, and return only the bounded generated answer to the parent context. The model sees a bounded initial excerpt and can inspect more of the same snapshot only through private line-read and literal-grep tools. References are best-effort rather than verified citations. Generated summaries are not cached, while normalized source snapshots retain the existing document cache behavior. The visible result presents the generated prose as Markdown with concise source/model metadata; usage accounting, generation counters, references, provenance, and bounds remain in structured `details`.
 
 ### `grep_url_content`
 
-Finds literal text in the same normalized snapshots used by `read_url_content`.
+Finds literal text in the same normalized snapshots used by `read_url_content`. The visible result is Markdown with match counts, line ranges, headings, quoted context, cursors, and warnings; exact offsets and match objects remain in structured `details`.
 
 ```ts
 {
@@ -278,7 +297,7 @@ Document cursors are opaque, authenticated, process-local, and bound to the oper
 
 Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or project `.pi/settings.json`. Project properties override matching global properties, while unspecified settings retain their defaults. Configure only the overrides you intend to change. The three minimal backend examples are in [Choose a search backend](#choose-a-search-backend).
 
-### Complete default configuration reference
+### Complete configuration reference
 
 ```json
 {
@@ -311,12 +330,26 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
     "grepMaxMatches": 20,
     "grepMaxLimitMatches": 100,
     "grepMaxChars": 12000,
-    "grepMaxLimitChars": 40000
+    "grepMaxLimitChars": 40000,
+    "summarizationEnabled": true,
+    "summarizerThinkingLevel": "low"
   }
 }
 ```
 
-The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
+The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. `summarizationEnabled` is true by default. Setting it to false gates execution and removes only `summarize_url_content` from Pi's active tool set/system prompt after reload; the registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax; when absent, summarization falls back to the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`; when omitted, provider defaults apply and the parent thinking level is never inherited. For the verified OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort` (`off` maps to `none` for Codex). Unsupported APIs and non-reasoning models fail before dispatch rather than silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
+
+A readable explicit summarizer setup is:
+
+```json
+{
+  "pi-web-search": {
+    "summarizationEnabled": true,
+    "summarizerModel": "openai-codex/gpt-5.6-luna",
+    "summarizerThinkingLevel": "low"
+  }
+}
+```
 
 `SEARXNG_URL` is a lower-priority compatibility fallback only when `searxngUrl` is absent from settings. `CACHE_TTL_MINUTES` is a lower-priority compatibility fallback only when `documentCacheTtlSeconds` is absent. `PI_WEB_SEARCH_BRAVE_API_KEY` is the environment-only exception for the Brave credential; it is not accepted in JSON settings. Package settings are preferred for new configuration. No other package-specific environment configuration is used. Use `/reload` or restart Pi to apply settings changes.
 
@@ -376,12 +409,15 @@ Static extraction does not execute JavaScript. Use Playwright or another JavaScr
 
 ## Requirements and privacy
 
+- Pi `0.84.1` or newer is required. The summarizer uses Pi's isolated `ModelRegistry.complete()` API; older Pi releases are not supported.
 - [`ddgr`](https://github.com/jarun/ddgr) must be installed separately on `PATH` to use that backend. This package never bundles, downloads, or installs it.
 - Direct `ddgr` use sends the query and caller network address to DuckDuckGo.
 - SearXNG mediates upstream connections but can observe the query. Its default URL is `http://127.0.0.1:8080`.
 - Brave receives the query and network information needed to provide API results. Review Brave's current API terms and retention practices; ordinary plans should not be assumed to provide zero-data retention.
 - The Brave subscription key is read only from `PI_WEB_SEARCH_BRAVE_API_KEY`, never from settings, and is not included in model-visible output. Search results may be cached locally without the key.
 - Document tools send the requested URL and caller network address to the destination server and any permitted HTTP redirects.
+- Enabled summarization sends the normalized source content and objective to the selected model provider. Provider costs, retention, and privacy terms apply; review those terms before use. The actual provider/model is shown in successful output.
+- Summarization does not create a generated-summary cache. The source snapshot may be bounded or truncated, and references are best-effort rather than verified citations.
 
 ## Guardrails and outcomes
 
@@ -390,7 +426,8 @@ Static extraction does not execute JavaScript. Use Playwright or another JavaScr
 - Document fetches accept HTTP(S) only, reject embedded credentials, follow at most five redirects, stream at most 5 MiB by default, and enforce timeout/cancellation.
 - Normalized snapshots default to a 2 MiB configured byte cap and always enforce a 50,000-line internal safety cap. Incomplete snapshots carry explicit warnings.
 - Static extraction warns when a page appears to be a client-rendered shell; use Playwright or another JavaScript-capable browser in that case.
-- Model-visible `content` and structured `details` are independently bounded below Pi's 50 KB/2,000-line protocol ceiling. Raw HTML, backend-native payloads, unbounded diagnostics, and full cached snapshots are never returned.
+- Model-visible `content` and structured `details` are independently bounded below Pi's 50 KB/2,000-line protocol ceiling. Raw HTML, backend-native payloads, unbounded diagnostics, full cached snapshots, and nested summarizer messages are never returned to the parent.
+- Summarization fails explicitly after bounded invalid or incomplete model behavior; it never presents partial generated prose as a successful summary.
 
 Expected outcomes use structured statuses:
 
@@ -403,4 +440,4 @@ Operational errors include stable codes such as `invalid_request`, `backend_unav
 
 ## Research workflow
 
-When subagents are available, prefer a type suited to web research for broad, multi-page, or context-heavy investigation. For page summarization, delegate the URL and objective before fetching so that subagent owns retrieval and returns a bounded evidence report. The extension itself is deterministic and never invokes an LLM.
+Search results are discovery aids; inspect a relevant source before relying on it. After finding a relevant single static page, prefer `summarize_url_content` when it is available and understanding, explaining, synthesizing, or evaluating that page would help complete the task. Call it directly rather than reading the page first merely to decide whether a summary would help. Use `read_url_content` for exact source text, quotations, code, commands, precise wording, manual inspection, or deliberate pagination, and use `grep_url_content` for targeted literal evidence. When subagents are available, delegate broad, multi-page, context-heavy, or cross-source research to a suitable research subagent. The read, grep, and search tools remain deterministic, while summarization is explicitly model-generated and isolated.

@@ -18,10 +18,10 @@ import {
   boundedDocumentWarnings,
   clampWarning,
   documentProvenance,
-  formatDocumentOutcome,
-  wasFormatTruncated,
+  formatReadDocumentOutcome,
   type DocumentToolRuntime,
 } from "./document-shared.js";
+import { renderToolCall, renderToolResult } from "./rendering.js";
 
 export function registerReadUrlContentTool(
   pi: ExtensionAPI,
@@ -34,18 +34,27 @@ export function registerReadUrlContentTool(
     description: `Fetch and normalize static HTTP(S) content into bounded pages (default ${effective.readMaxChars}, maximum ${effective.readMaxLimitChars} characters).`,
     promptSnippet: "Read a page from a static URL snapshot.",
     promptGuidelines: [
-      "Use read_url_content for static HTML, text, Markdown, or JSON.",
-      "Use cursors to continue the exact cached snapshot.",
+      "Use read_url_content when exact source text, quotations, code, commands, precise wording, manual inspection, or deliberate pagination is needed.",
+      "For understanding, explaining, synthesizing, or evaluating one known static page, prefer summarize_url_content when it is available instead of reading the page first.",
+      "Use cursors to continue the exact cached snapshot when deliberate pagination is needed.",
       "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
     ],
     parameters: ReadUrlContentParams,
 
+    renderCall(args, theme) {
+      return renderToolCall("read_url_content", args, theme);
+    },
+
+    renderResult(result, { expanded }, theme) {
+      return renderToolResult("read_url_content", result, expanded, theme);
+    },
+
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
       const runtime = getRuntime();
       const validation = validateReadUrlContentRequest(params);
       if (validation) {
-        return formatDocumentOutcome(
+        return formatReadDocumentOutcome(
           errorOutcome("read_url_content", validation),
         );
       }
@@ -75,7 +84,7 @@ export function registerReadUrlContentTool(
       if (input.cursor) {
         const decoded = runtime.cursors.decode(input.cursor, "read", hash);
         if (decoded.error) {
-          return formatDocumentOutcome(
+          return formatReadDocumentOutcome(
             errorOutcome("read_url_content", decoded.error),
           );
         }
@@ -91,7 +100,7 @@ export function registerReadUrlContentTool(
         );
       }
       if (snapshotResult.error) {
-        return formatDocumentOutcome(
+        return formatReadDocumentOutcome(
           errorOutcome("read_url_content", snapshotResult.error),
         );
       }
@@ -142,8 +151,17 @@ export function registerReadUrlContentTool(
             maxBytes: 48 * 1_024,
           },
         };
-        const formatted = formatDocumentOutcome(outcome);
-        if (!wasFormatTruncated(formatted)) return formatted;
+        const formatted = formatReadDocumentOutcome(outcome, {
+          source: page.content,
+          contentType: snapshot.contentType,
+          finalUrl: snapshot.finalUrl,
+          start: page.start,
+          end: page.end,
+          total: page.total,
+          truncated: snapshot.truncated || hasMore,
+          ...(nextCursor ? { nextCursor } : {}),
+        });
+        if (formatted) return formatted;
         if (pageBudget === 1) {
           throw new InvariantError(
             "Document metadata exceeds the protocol output budget",
