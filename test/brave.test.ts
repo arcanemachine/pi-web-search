@@ -102,7 +102,7 @@ describe("Brave Search backend", () => {
       }).search(request, { timeoutMs: 1_000 });
       assert.equal(outcome.error?.code, "backend_unavailable");
       assert.equal(outcome.error?.retryable, false);
-      assert.match(outcome.summary, /PI_WEB_SEARCH_BRAVE_API_KEY/);
+      assert.match(outcome.summary, /BRAVE_SEARCH_API_KEY/);
     }
     assert.equal(calls, 0);
   });

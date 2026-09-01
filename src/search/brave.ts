@@ -194,7 +194,7 @@ export class BraveBackend implements SearchBackend {
         request,
         operationalError(
           "backend_unavailable",
-          "Brave Search backend requires PI_WEB_SEARCH_BRAVE_API_KEY",
+          "Brave Search backend requires BRAVE_SEARCH_API_KEY",
           false,
         ),
         elapsed(startedAt, this.dependencies.now),

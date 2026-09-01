@@ -271,7 +271,7 @@ function envOverrides(
     result.searxngUrl = searxngUrl;
   }
 
-  const braveApiKey = env.PI_WEB_SEARCH_BRAVE_API_KEY?.trim();
+  const braveApiKey = env.BRAVE_SEARCH_API_KEY?.trim();
   if (braveApiKey) result.braveApiKey = braveApiKey;
 
   const ttlMinutes = env.CACHE_TTL_MINUTES?.trim();

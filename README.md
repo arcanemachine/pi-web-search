@@ -74,7 +74,7 @@ Use `-l` when removing a project-local installation. Start or restart Pi after i
 | `grep_url_content`          | No external executable or service; requires outbound HTTP(S).                                                                        |
 | `search_web` via DuckDuckGo | Outbound HTTPS to DuckDuckGo's HTML search endpoint; no external executable or service.                                              |
 | `search_web` via SearXNG    | A reachable SearXNG service with JSON enabled.                                                                                       |
-| `search_web` via Brave      | A Brave Search API subscription key in `PI_WEB_SEARCH_BRAVE_API_KEY` and outbound HTTPS.                                             |
+| `search_web` via Brave      | A Brave Search API subscription key in `BRAVE_SEARCH_API_KEY` and outbound HTTPS.                                                    |
 | HTML normalization          | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi.            |
 | `summarize_url_content`     | Optional model access through the active Pi model or configured `summarizerModel`; enabled by default; disableable by configuration. |
 
@@ -143,7 +143,7 @@ Brave is an explicit opt-in backend. It requires a Brave Search API subscription
 Export the key in the environment of the process running Pi:
 
 ```bash
-export PI_WEB_SEARCH_BRAVE_API_KEY='your-subscription-token'
+export BRAVE_SEARCH_API_KEY='your-subscription-token'
 ```
 
 The key is environment-only. A `braveApiKey` property in global or project JSON settings is rejected intentionally. Reload Pi or restart it after changing the environment.
@@ -349,13 +349,13 @@ A readable explicit summarizer setup is:
 }
 ```
 
-`SEARXNG_URL` is a lower-priority compatibility fallback only when `searxngUrl` is absent from settings. `CACHE_TTL_MINUTES` is a lower-priority compatibility fallback only when `documentCacheTtlSeconds` is absent. `PI_WEB_SEARCH_BRAVE_API_KEY` is the environment-only exception for the Brave credential; it is not accepted in JSON settings. Package settings are preferred for new configuration. No other package-specific environment configuration is used. Use `/reload` or restart Pi to apply settings changes.
+`SEARXNG_URL` is a lower-priority compatibility fallback only when `searxngUrl` is absent from settings. `CACHE_TTL_MINUTES` is a lower-priority compatibility fallback only when `documentCacheTtlSeconds` is absent. `BRAVE_SEARCH_API_KEY` is the environment-only exception for the Brave credential; it is not accepted in JSON settings. Package settings are preferred for new configuration. No other package-specific environment configuration is used. Use `/reload` or restart Pi to apply settings changes.
 
 ## Troubleshooting
 
 ### `backend_unavailable`
 
-For Brave, this usually means `PI_WEB_SEARCH_BRAVE_API_KEY` is missing or blank. Export it in the environment visible to Pi and reload or restart Pi. A 401 means Brave rejected the subscription token; check the key in the official Brave account console without placing it in settings.
+For Brave, this usually means `BRAVE_SEARCH_API_KEY` is missing or blank. Export it in the environment visible to Pi and reload or restart Pi. A 401 means Brave rejected the subscription token; check the key in the official Brave account console without placing it in settings.
 
 ### `blocked` from DuckDuckGo or Brave
 
@@ -410,7 +410,7 @@ Static extraction does not execute JavaScript. Use Playwright or another JavaScr
 - DuckDuckGo search requires no separate command or Python installation. It sends the query and caller network address directly to DuckDuckGo over HTTPS.
 - SearXNG mediates upstream connections but can observe the query. Its default URL is `http://127.0.0.1:8080`.
 - Brave receives the query and network information needed to provide API results. Review Brave's current API terms and retention practices; ordinary plans should not be assumed to provide zero-data retention.
-- The Brave subscription key is read only from `PI_WEB_SEARCH_BRAVE_API_KEY`, never from settings, and is not included in model-visible output. Search results may be cached locally without the key.
+- The Brave subscription key is read only from `BRAVE_SEARCH_API_KEY`, never from settings, and is not included in model-visible output. Search results may be cached locally without the key.
 - Document tools send the requested URL and caller network address to the destination server and any permitted HTTP redirects.
 - Enabled summarization sends the normalized source content and objective to the selected model provider. Provider costs, retention, and privacy terms apply; review those terms before use. The actual provider/model is shown in successful output.
 - Summarization does not create a generated-summary cache. The source snapshot may be bounded or truncated, and references are best-effort rather than verified citations.
