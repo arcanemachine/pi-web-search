@@ -96,7 +96,7 @@ describe("ordered search service", () => {
     );
     const searxng = new FakeBackend("searxng", async () => ok("searxng"));
     const service = new SearchService(
-      config(),
+      config({ backends: ["duckduckgo", "searxng"] }),
       backendMap(duckduckgo, searxng),
       () => 0,
     );
@@ -114,7 +114,7 @@ describe("ordered search service", () => {
     );
     const searxng = new FakeBackend("searxng", async () => ok("searxng"));
     const service = new SearchService(
-      config(),
+      config({ backends: ["duckduckgo", "searxng"] }),
       backendMap(duckduckgo, searxng),
       () => 0,
     );
@@ -161,7 +161,11 @@ describe("ordered search service", () => {
     );
     const searxng = new FakeBackend("searxng", async () => ok("searxng"));
     const service = new SearchService(
-      config({ searchRateLimitPerMinute: 10, searchRateLimitBurst: 1 }),
+      config({
+        backends: ["duckduckgo", "searxng"],
+        searchRateLimitPerMinute: 10,
+        searchRateLimitBurst: 1,
+      }),
       backendMap(duckduckgo, searxng),
       () => now,
     );

@@ -7,6 +7,10 @@ import {
 } from "../src/config.js";
 
 describe("pi-web-search configuration", () => {
+  it("uses only DuckDuckGo by default", () => {
+    assert.deepEqual(DEFAULT_CONFIG.backends, ["duckduckgo"]);
+  });
+
   it("defaults summarization on and merges its settings", () => {
     const defaults = resolveConfig({}, {}, {});
     assert.equal(defaults.summarizationEnabled, true);

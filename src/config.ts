@@ -57,7 +57,7 @@ export interface PiWebSearchConfig {
 }
 
 export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
-  backends: ["duckduckgo", "searxng"] as SearchBackendName[],
+  backends: ["duckduckgo"] as SearchBackendName[],
   searxngUrl: "http://127.0.0.1:8080",
   searchTimeoutMs: 10_000,
   searchCacheTtlSeconds: 120,

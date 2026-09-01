@@ -6,7 +6,7 @@
 
 A [Pi](https://pi.dev) extension for bounded web search and static document tools.
 
-No package-specific configuration is required. Web search uses native DuckDuckGo first and falls back to SearXNG by default. Brave is an opt-in backend. The extension can read static web pages, search their extracted text, and summarize them with Pi's active model by default.
+No package-specific configuration is required. Web search uses native DuckDuckGo by default. SearXNG and Brave are opt-in backends; configure SearXNG after DuckDuckGo when you want fallback. The extension can read static web pages, search their extracted text, and summarize them with Pi's active model by default.
 
 > Like this extension? See [my other Pi extensions](https://github.com/arcanemachine/pi-projects).
 
@@ -78,7 +78,7 @@ Use `-l` when removing a project-local installation. Start or restart Pi after i
 | HTML normalization          | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi.            |
 | `summarize_url_content`     | Optional model access through the active Pi model or configured `summarizerModel`; enabled by default; disableable by configuration. |
 
-You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. The default backend order is `duckduckgo`, then SearXNG; Brave is explicit opt-in. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
+You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. The default backend is `duckduckgo`; SearXNG and Brave are opt-in. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
 
 ## Choose a search backend
 
@@ -232,7 +232,7 @@ Searches the configured backend order only.
 }
 ```
 
-The default order is `duckduckgo`, then SearXNG. The next backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `limit` applies to one initial DuckDuckGo HTML page; the backend does not paginate. `forceRefresh` bypasses completed cache entries, not the limiter. The visible result is a numbered Markdown list of titles, URLs, snippets, backend metadata, and warnings; the structured `details` field retains the complete bounded outcome.
+The default backend is `duckduckgo`. Additional backends run only when they are explicitly listed in `backends`; the next listed backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `limit` applies to one initial DuckDuckGo HTML page; the backend does not paginate. `forceRefresh` bypasses completed cache entries, not the limiter. The visible result is a numbered Markdown list of titles, URLs, snippets, backend metadata, and warnings; the structured `details` field retains the complete bounded outcome.
 
 ### `read_url_content`
 
@@ -299,7 +299,7 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
 ```json
 {
   "pi-web-search": {
-    "backends": ["duckduckgo", "searxng"],
+    "backends": ["duckduckgo"],
     "searxngUrl": "http://127.0.0.1:8080",
     "searchTimeoutMs": 10000,
     "searchCacheTtlSeconds": 120,
