@@ -154,6 +154,7 @@ const MAXIMUMS: Record<NumericKey, number> = {
 const KNOWN_KEYS = new Set<string>([
   "backends",
   "searxngUrl",
+  "braveApiKey",
   "summarizationEnabled",
   "summarizerModel",
   "summarizerThinkingLevel",
@@ -244,6 +245,13 @@ function normalizeSearxngUrl(value: unknown): string {
     throw new ConfigurationError("searxngUrl must use HTTP or HTTPS");
   }
   return parsed.toString().replace(/\/$/, "");
+}
+
+function normalizeBraveApiKey(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new ConfigurationError("braveApiKey must be a non-empty string");
+  }
+  return value.trim();
 }
 
 function normalizePositiveInteger(key: NumericKey, value: unknown): number {
@@ -397,7 +405,7 @@ export function resolveConfig(
     config.searxngUrl = normalizeSearxngUrl(merged.searxngUrl);
   }
   if (merged.braveApiKey !== undefined) {
-    config.braveApiKey = merged.braveApiKey as string;
+    config.braveApiKey = normalizeBraveApiKey(merged.braveApiKey);
   }
   if (merged.summarizationEnabled !== undefined) {
     if (typeof merged.summarizationEnabled !== "boolean") {

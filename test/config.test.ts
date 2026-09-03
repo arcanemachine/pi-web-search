@@ -129,23 +129,47 @@ describe("pi-web-search configuration", () => {
     );
   });
 
-  it("reads the Brave key only from the environment", () => {
-    const config = resolveConfig(
+  it("accepts the Brave key from settings before the environment", () => {
+    const fromEnvironment = resolveConfig(
       {},
       { "pi-web-search": { backends: ["brave"] } },
-      { BRAVE_SEARCH_API_KEY: "  fake-token  " },
+      { BRAVE_SEARCH_API_KEY: "  environment-token  " },
     );
-    assert.equal(config.braveApiKey, "fake-token");
+    assert.equal(fromEnvironment.braveApiKey, "environment-token");
+
+    const fromGlobalSettings = resolveConfig(
+      { "pi-web-search": { braveApiKey: "  global-token  " } },
+      {},
+      { BRAVE_SEARCH_API_KEY: "environment-token" },
+    );
+    assert.equal(fromGlobalSettings.braveApiKey, "global-token");
+
+    const fromProjectSettings = resolveConfig(
+      { "pi-web-search": { braveApiKey: "global-token" } },
+      { "pi-web-search": { braveApiKey: "  project-token  " } },
+      { BRAVE_SEARCH_API_KEY: "environment-token" },
+    );
+    assert.equal(fromProjectSettings.braveApiKey, "project-token");
     assert.equal(DEFAULT_CONFIG.braveApiKey, undefined);
+  });
+
+  it("rejects invalid Brave keys without exposing their values", () => {
+    for (const value of ["", "   ", 42, true]) {
+      assert.throws(
+        () =>
+          resolveConfig({}, { "pi-web-search": { braveApiKey: value } }, {}),
+        /braveApiKey must be a non-empty string/,
+      );
+    }
+
     const secret = "BRAVE_SETTINGS_SECRET_123";
     let configurationError: unknown;
     try {
-      resolveConfig({}, { "pi-web-search": { braveApiKey: secret } }, {});
+      resolveConfig({}, { "pi-web-search": { braveApiKey: { secret } } }, {});
     } catch (error) {
       configurationError = error;
     }
     assert.ok(configurationError instanceof ConfigurationError);
-    assert.match(String(configurationError), /braveApiKey/);
     assert.doesNotMatch(String(configurationError), new RegExp(secret));
     assert.equal(
       resolveConfig({}, {}, { BRAVE_SEARCH_API_KEY: "   " }).braveApiKey,

@@ -9,6 +9,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
+- Brave API keys can be configured with `braveApiKey`, with `BRAVE_SEARCH_API_KEY` retained as a lower-priority environment fallback.
 - Tool call rows now show each tool's full registered name.
 - Grep returns ordinary match sets without false truncation, uses numeric offsets for oversized results, and defaults to no surrounding context lines.
 - Document output formatting allows complete ordinary multi-match results while retaining byte and pathological-result bounds.
