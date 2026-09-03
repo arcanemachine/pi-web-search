@@ -286,7 +286,7 @@ Finds literal text in the same normalized snapshots used by `read_url_content`. 
 }
 ```
 
-Matches include exact bounded quotes, heading breadcrumbs, line numbers, and normalized character offsets. Overlapping context windows are coalesced. Results include all matches by default. When the result is too large for the tool-output budget, the response is marked truncated and includes `nextOffset`; call the tool again with the same arguments and set `offset` to `nextOffset`. No matches return explicit `status: "no_match"`.
+Matches include exact bounded quotes, heading breadcrumbs, line numbers, and normalized character offsets. Surrounding context defaults to zero lines before and after each match; set `beforeLines` and `afterLines` when context is useful. Overlapping context windows are coalesced. Results include all matches by default. When the result is too large for the tool-output budget, the response is marked truncated and includes `nextOffset`; call the tool again with the same arguments and set `offset` to `nextOffset`. No matches return explicit `status: "no_match"`.
 
 Read cursors are opaque, authenticated, process-local, and bound to the exact cached snapshot. Expired or evicted read snapshots return `cursor_expired`; read cursors never silently continue against refetched content. Grep continuation uses a simple zero-based match offset because snapshot expiry and page changes are acceptable edge cases.
 

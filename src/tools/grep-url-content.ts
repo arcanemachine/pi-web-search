@@ -35,7 +35,7 @@ export function registerGrepUrlContentTool(
     promptGuidelines: [
       "Use grep_url_content for targeted literal evidence from a known or likely static URL.",
       "For understanding or explaining one known static page, prefer summarize_url_content when it is available instead of collecting broad raw text.",
-      "Results include all matches by default. If a result includes nextOffset, call grep_url_content again with the same arguments and set offset to nextOffset.",
+      "Results include all matches by default with no surrounding context lines. Set beforeLines and afterLines to positive values when surrounding context is useful. If a result includes nextOffset, call grep_url_content again with the same arguments and set offset to nextOffset.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
       "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
     ],
@@ -72,8 +72,8 @@ export function registerGrepUrlContentTool(
         );
       }
       const selector = input.selector?.trim() || undefined;
-      const requestedBefore = input.beforeLines ?? 1;
-      const requestedAfter = input.afterLines ?? 1;
+      const requestedBefore = input.beforeLines ?? 0;
+      const requestedAfter = input.afterLines ?? 0;
       const requestedMatches =
         input.maxMatches ?? runtime.config.grepMaxMatches;
       const startOrdinal = input.offset ?? 0;

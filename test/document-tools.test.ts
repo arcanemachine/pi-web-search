@@ -272,6 +272,25 @@ describe("shared document tools", () => {
       (grepResult.details.provenance as { contentHash?: string }).contentHash,
       readProvenance.contentHash,
     );
+
+    const compactGrepResult = await execute(grep, {
+      url: `${fixture.baseUrl}/technical`,
+      query: "Target",
+    });
+    const compactMatches = (
+      compactGrepResult.details.data as {
+        matches: Array<{ quote: string; matchCount: number }>;
+      }
+    ).matches;
+    assert.equal(
+      compactMatches.reduce((total, match) => total + match.matchCount, 0),
+      2,
+    );
+    assert.ok(
+      compactMatches.every(
+        (match) => !/Intro with|const value/.test(match.quote),
+      ),
+    );
     assert.equal(fixture.requests("/technical") - beforeRequests, 1);
   });
 
