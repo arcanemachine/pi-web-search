@@ -29,10 +29,24 @@ describe("tool presentation renderers", () => {
         theme,
       ),
     );
-    assert.match(call, /summarize/);
+    assert.match(call, /summarize_url_content/);
     assert.match(call, /https:\/\/example\.test\/article/);
     assert.match(call, /Find the key decision/);
     assert.doesNotMatch(call, /\"objective\"/);
+  });
+
+  it("uses the full tool name for every rendered call", () => {
+    for (const operation of [
+      "search_web",
+      "read_url_content",
+      "grep_url_content",
+      "summarize_url_content",
+    ] as const) {
+      assert.match(
+        rendered(renderToolCall(operation, {}, theme)),
+        new RegExp(operation),
+      );
+    }
   });
 
   it("switches between compact and complete search results", () => {

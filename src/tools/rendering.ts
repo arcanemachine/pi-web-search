@@ -138,7 +138,7 @@ export function renderToolCall(
   theme: Theme,
 ): StructuralComponent {
   const input = isRecord(args) ? args : {};
-  const label = operation.replace(/_url_content|_web/g, "");
+  const label = operation;
   const parts: string[] = [theme.fg("toolTitle", theme.bold(label))];
   const url = argumentText(input.url, 220);
   if (url) parts.push(theme.fg("muted", url));
