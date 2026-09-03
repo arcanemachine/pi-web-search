@@ -33,7 +33,8 @@ export function registerGrepUrlContentTool(
     description: `Find literal text in a normalized document snapshot. Results include all matches by default; pathological results are bounded to ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters and expose a continuation offset.`,
     promptSnippet: "Find text in a static URL snapshot.",
     promptGuidelines: [
-      "Use grep_url_content for targeted literal evidence from a known or likely static URL.",
+      "Use grep_url_content to find literal text in a web page at a known URL, usually after search_web identifies the page.",
+      "Do not use grep_url_content to search local files or directories.",
       "For understanding or explaining one known static page, prefer summarize_url_content when it is available instead of collecting broad raw text.",
       "Results include all matches by default with no surrounding context lines. Set beforeLines and afterLines to positive values when surrounding context is useful. If a result includes nextOffset, call grep_url_content again with the same arguments and set offset to nextOffset.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",

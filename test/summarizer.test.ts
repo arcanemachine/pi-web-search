@@ -164,7 +164,7 @@ describe("summarize_url_content tool", () => {
       disabledTools.get("grep_url_content")?.promptGuidelines?.join("\n") ?? "";
     assert.match(readGuidelines, /exact source text/);
     assert.match(readGuidelines, /when it is available/);
-    assert.match(grepGuidelines, /targeted literal evidence/);
+    assert.match(grepGuidelines, /web page at a known URL/);
     assert.match(grepGuidelines, /when it is available/);
     const result = await execute(
       disabled,
