@@ -58,6 +58,7 @@ export function formatDocumentOutcome(
   return formatOutcome(outcome, {
     maxContentBytes: DOCUMENT_OUTPUT_BUDGET,
     maxDetailsBytes: DOCUMENT_OUTPUT_BUDGET,
+    maxEntries: 10_000,
     maxArrayItems: 150,
     maxStringBytes: 40_000,
   });

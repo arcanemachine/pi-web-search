@@ -13,6 +13,7 @@ import {
 export interface FormatBudget {
   maxContentBytes: number;
   maxDetailsBytes: number;
+  maxEntries?: number;
   maxStringBytes?: number;
   maxArrayItems?: number;
 }
@@ -284,7 +285,7 @@ export function formatOutcome(
   };
   const jsonBounds: JsonBounds = {
     maxDepth: 8,
-    maxEntries: 200,
+    maxEntries: budget.maxEntries ?? 200,
     maxArrayItems: budget.maxArrayItems ?? 100,
     maxStringBytes: budget.maxStringBytes ?? 4_096,
   };

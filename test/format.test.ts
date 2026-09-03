@@ -8,6 +8,7 @@ import {
   type OutcomeEnvelope,
 } from "../src/contracts.js";
 import { formatOutcome } from "../src/format.js";
+import { formatDocumentOutcome } from "../src/tools/document-shared.js";
 
 const expectedOutcomes: OutcomeEnvelope[] = [
   {
@@ -147,6 +148,42 @@ describe("outcome formatter", () => {
     assert.match(summary.content[0].text, /^# Summary/);
     assert.match(summary.content[0].text, /useful generated answer/);
     assert.doesNotMatch(summary.content[0].text, /\"generation\"/);
+  });
+
+  it("keeps ordinary multi-match grep output complete", () => {
+    const matches = Array.from({ length: 30 }, (_, index) => ({
+      line: index + 1,
+      endLine: index + 1,
+      quote: `target value ${index + 1}`,
+      startOffset: index,
+      endOffset: index + 6,
+      quoteStartOffset: index,
+      quoteEndOffset: index + 6,
+      matchCount: 1,
+    }));
+    const formatted = formatDocumentOutcome({
+      operation: "grep_url_content",
+      status: "ok",
+      summary: "Found all matches",
+      data: {
+        query: "target",
+        matches,
+        totalMatches: 30,
+        offset: 0,
+      },
+      bounds: {
+        truncated: false,
+        returnedItems: 30,
+        totalItems: 30,
+      },
+    });
+    assert.match(formatted.content[0].text, /\*\*Matches:\*\* 30 of 30/);
+    assert.doesNotMatch(formatted.content[0].text, /\*\*Truncated:\*\*/);
+    assert.doesNotMatch(formatted.content[0].text, /\*\*Next offset:\*\*/);
+    assert.equal(
+      (formatted.details.format as { truncated?: boolean }).truncated,
+      false,
+    );
   });
 
   it("returns non-empty content for every operational error code", () => {
