@@ -91,6 +91,44 @@ describe("outcome formatter", () => {
     assert.match(grep.content[0].text, /^# Literal matches/);
     assert.match(grep.content[0].text, /> target value/);
 
+    const pagedGrep = formatOutcome({
+      operation: "grep_url_content",
+      status: "ok",
+      summary: "Found more matches",
+      data: {
+        query: "target",
+        offset: 2,
+        nextOffset: 4,
+        matches: [
+          {
+            line: 8,
+            endLine: 8,
+            quote: "target value",
+            startOffset: 0,
+            endOffset: 12,
+            quoteStartOffset: 0,
+            quoteEndOffset: 12,
+            matchCount: 1,
+          },
+          {
+            line: 12,
+            endLine: 12,
+            quote: "target value",
+            startOffset: 0,
+            endOffset: 12,
+            quoteStartOffset: 0,
+            quoteEndOffset: 12,
+            matchCount: 1,
+          },
+        ],
+        totalMatches: 6,
+      },
+      bounds: { truncated: true, returnedItems: 2, totalItems: 6 },
+    });
+    assert.match(pagedGrep.content[0].text, /\*\*Matches:\*\* 2 of 6/);
+    assert.match(pagedGrep.content[0].text, /\*\*Range:\*\* matches 3-4 of 6/);
+    assert.match(pagedGrep.content[0].text, /\*\*Next offset:\*\* 4/);
+
     const summary = formatOutcome({
       operation: "summarize_url_content",
       status: "ok",

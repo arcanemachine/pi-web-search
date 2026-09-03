@@ -168,11 +168,10 @@ export const GrepUrlContentParams = Type.Object(
         description: "CSS selector for the content root",
       }),
     ),
-    cursor: Type.Optional(
-      Type.String({
-        minLength: 1,
-        maxLength: 2_048,
-        description: "Opaque cursor for the same cached matches",
+    offset: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        description: "Zero-based match offset for continuing a bounded result",
       }),
     ),
     forceRefresh: Type.Optional(
@@ -303,8 +302,5 @@ export function validateGrepUrlContentRequest(
   }
   const selectorError = validateSelector(request.selector);
   if (selectorError) return selectorError;
-  if (request.cursor && request.forceRefresh) {
-    return invalid("cursor cannot be combined with forceRefresh");
-  }
   return undefined;
 }

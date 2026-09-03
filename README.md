@@ -269,7 +269,7 @@ Summarization is enabled by default. `summarizerModel` optionally selects a conf
 
 ### `grep_url_content`
 
-Finds literal text in the same normalized snapshots used by `read_url_content`. The visible result is Markdown with match counts, line ranges, headings, quoted context, cursors, and warnings; exact offsets and match objects remain in structured `details`.
+Finds literal text in the same normalized snapshots used by `read_url_content`. The visible result is Markdown with match counts, match ranges, line ranges, headings, quoted context, continuation offsets when needed, and warnings; exact offsets and match objects remain in structured `details`.
 
 ```ts
 {
@@ -281,14 +281,14 @@ Finds literal text in the same normalized snapshots used by `read_url_content`. 
   maxChars?: number;
   caseSensitive?: boolean;
   selector?: string;
-  cursor?: string;
+  offset?: number;
   forceRefresh?: boolean;
 }
 ```
 
-Matches include exact bounded quotes, heading breadcrumbs, line numbers, and normalized character offsets. Overlapping context windows are coalesced. No matches return explicit `status: "no_match"`.
+Matches include exact bounded quotes, heading breadcrumbs, line numbers, and normalized character offsets. Overlapping context windows are coalesced. Results include all matches by default. When the result is too large for the tool-output budget, the response is marked truncated and includes `nextOffset`; call the tool again with the same arguments and set `offset` to `nextOffset`. No matches return explicit `status: "no_match"`.
 
-Document cursors are opaque, authenticated, process-local, and bound to the operation, options, position, and exact cached snapshot. Expired or evicted snapshots return `cursor_expired`; cursors never silently continue against refetched content. A cursor cannot be combined with `forceRefresh`.
+Read cursors are opaque, authenticated, process-local, and bound to the exact cached snapshot. Expired or evicted read snapshots return `cursor_expired`; read cursors never silently continue against refetched content. Grep continuation uses a simple zero-based match offset because snapshot expiry and page changes are acceptable edge cases.
 
 ## Configuration
 
@@ -324,9 +324,9 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
     "readMaxLimitChars": 40000,
     "grepMaxQueryChars": 500,
     "grepMaxContextLines": 20,
-    "grepMaxMatches": 20,
-    "grepMaxLimitMatches": 100,
-    "grepMaxChars": 12000,
+    "grepMaxMatches": 1000,
+    "grepMaxLimitMatches": 1000,
+    "grepMaxChars": 40000,
     "grepMaxLimitChars": 40000,
     "summarizationEnabled": true,
     "summarizerModel": "provider/model",
@@ -335,7 +335,7 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
 }
 ```
 
-The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Summarization is enabled by default. Set `summarizationEnabled` to `false` to disable execution and remove only `summarize_url_content` from Pi's active tool set and system prompt after reload; its registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax. When absent, summarization uses the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, provider defaults apply and the parent thinking level is not inherited. For the supported OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort`; `off` maps to `none` for Codex. Unsupported APIs and non-reasoning models fail before dispatch instead of silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
+The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Grep defaults are intentionally high so ordinary queries return every match; pathological results are bounded and expose a `nextOffset` continuation hint. Summarization is enabled by default. Set `summarizationEnabled` to `false` to disable execution and remove only `summarize_url_content` from Pi's active tool set and system prompt after reload; its registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax. When absent, summarization uses the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, provider defaults apply and the parent thinking level is not inherited. For the supported OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort`; `off` maps to `none` for Codex. Unsupported APIs and non-reasoning models fail before dispatch instead of silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
 
 A readable explicit summarizer setup is:
 

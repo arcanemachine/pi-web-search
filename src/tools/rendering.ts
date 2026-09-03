@@ -152,6 +152,8 @@ export function renderToolCall(
   if (selector) parts.push(theme.fg("dim", `selector=${selector}`));
   const cursor = argumentText(input.cursor, 48);
   if (cursor) parts.push(theme.fg("dim", `cursor=${cursor}`));
+  const offset = argumentText(input.offset, 30);
+  if (offset && offset !== "0") parts.push(theme.fg("dim", `offset=${offset}`));
   return outputComponent(parts.join(" "), true, theme);
 }
 

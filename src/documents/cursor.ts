@@ -6,7 +6,7 @@ import {
 } from "node:crypto";
 import { operationalError, type OperationalError } from "../contracts.js";
 
-export type CursorOperation = "read" | "grep";
+export type CursorOperation = "read";
 
 export interface CursorState {
   snapshotId: string;
@@ -35,7 +35,7 @@ function isEncodedCursor(value: unknown): value is EncodedCursor {
   return (
     item.v === 1 &&
     typeof item.s === "string" &&
-    (item.o === "read" || item.o === "grep") &&
+    item.o === "read" &&
     typeof item.p === "number" &&
     Number.isSafeInteger(item.p) &&
     item.p >= 0 &&

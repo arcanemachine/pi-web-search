@@ -167,11 +167,23 @@ function formatGrep(details: JsonObject): string[] {
   const query = stringValue(data?.query);
   const matches = Array.isArray(data?.matches) ? data.matches : [];
   const total = numberValue(data?.totalMatches, matches.length);
+  const offset = numberValue(data?.offset, 0);
+  const returned = matches.reduce<number>((count, item) => {
+    if (!isRecord(item)) return count;
+    return count + Math.max(1, Math.floor(numberValue(item.matchCount, 1)));
+  }, 0);
   const lines = [
     "# Literal matches",
     `**Query:** \`${inline(query)}\``,
-    `**Matches:** ${matches.length} of ${total}`,
+    `**Matches:** ${returned} of ${total}`,
   ];
+  if (returned > 0) {
+    lines.push(
+      `**Range:** matches ${offset + 1}-${offset + returned} of ${total}`,
+    );
+  }
+  const nextOffset = numberValue(data?.nextOffset, -1);
+  if (nextOffset >= 0) lines.push(`**Next offset:** ${nextOffset}`);
   if (matches.length === 0)
     lines.push("", "No matching document content found.");
   matches.forEach((item, index) => {
@@ -289,6 +301,9 @@ export function formatOutcome(
   let text = formatOutcomeMarkdown(details);
   if (byteLength(text) > maxContentBytes) {
     text = truncateUtf8(text, maxContentBytes).value;
+    if (isRecord(details.format)) {
+      details.format = { ...details.format, truncated: true };
+    }
   }
   if (!text.trim())
     text = `${operationLabel(details)} completed without visible output`;

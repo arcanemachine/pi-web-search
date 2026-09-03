@@ -19,6 +19,7 @@ export interface MatchPage {
   matches: GrepMatch[];
   totalMatches: number;
   consumedMatches: number;
+  truncated: boolean;
 }
 
 function escapeRegExp(value: string): string {
@@ -143,6 +144,7 @@ export function matchSnapshot(
   const records: GrepMatch[] = [];
   let remainingChars = maxChars;
   let consumedMatches = 0;
+  let truncated = false;
   const queryCharacters = [...query].length;
 
   for (const window of windows) {
@@ -154,6 +156,7 @@ export function matchSnapshot(
     const rawLength = rawEnd - rawStart;
     const firstMatchStart = characterOffset(snapshot, window.matches[0].start);
     const quoteLength = Math.min(rawLength, remainingChars);
+    if (quoteLength < rawLength) truncated = true;
     const includedMatches = [] as MatchPosition[];
     let lastMatchEnd = firstMatchStart;
     for (const match of window.matches) {
@@ -203,5 +206,10 @@ export function matchSnapshot(
     if (includedMatches.length < window.matches.length) break;
   }
 
-  return { matches: records, totalMatches: found.total, consumedMatches };
+  return {
+    matches: records,
+    totalMatches: found.total,
+    consumedMatches,
+    truncated,
+  };
 }

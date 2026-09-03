@@ -121,19 +121,26 @@ describe("public request schemas", () => {
     );
   });
 
-  it("rejects unsupported cursor combinations", () => {
+  it("accepts grep offsets and keeps read cursor validation", () => {
+    assert.equal(
+      Value.Check(GrepUrlContentParams, {
+        url: "https://example.com",
+        query: "text",
+        offset: 4,
+      }),
+      true,
+    );
+    assert.equal(
+      Value.Check(GrepUrlContentParams, {
+        url: "https://example.com",
+        query: "text",
+        cursor: "cursor",
+      }),
+      false,
+    );
     assert.equal(
       validateReadUrlContentRequest({
         url: "https://example.com",
-        cursor: "cursor",
-        forceRefresh: true,
-      })?.code,
-      "invalid_request",
-    );
-    assert.equal(
-      validateGrepUrlContentRequest({
-        url: "https://example.com",
-        query: "text",
         cursor: "cursor",
         forceRefresh: true,
       })?.code,

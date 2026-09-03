@@ -241,8 +241,6 @@ describe("shared document tools", () => {
       query: "Target",
       beforeLines: 1,
       afterLines: 1,
-      maxMatches: 10,
-      maxChars: 2_000,
     });
     assert.equal(grepResult.details.status, "ok");
     const grepData = grepResult.details.data as {
@@ -257,6 +255,8 @@ describe("shared document tools", () => {
     };
     assert.equal(grepData.totalMatches, 2);
     assert.equal(grepData.matches.length, 1);
+    assert.match(grepResult.content[0].text, /\*\*Matches:\*\* 2 of 2/);
+    assert.doesNotMatch(grepResult.content[0].text, /\*\*Truncated:\*\*/);
     assert.equal(grepData.matches[0].matchCount, 2);
     assert.equal(grepData.matches[0].heading, "API Guide > Usage");
     assert.equal(
@@ -275,7 +275,7 @@ describe("shared document tools", () => {
     assert.equal(fixture.requests("/technical") - beforeRequests, 1);
   });
 
-  it("returns explicit no-match and stable match pagination", async () => {
+  it("returns explicit no-match and match offset pagination", async () => {
     const tools = toolsFor(packageConfig(), fixture);
     const grep = tools.get("grep_url_content");
     assert.ok(grep);
@@ -313,11 +313,14 @@ describe("shared document tools", () => {
       afterLines: 0,
     });
     const firstData = first.details.data as {
-      nextCursor?: string;
+      offset: number;
+      nextOffset?: number;
       matches: Array<{ quote: string }>;
     };
-    assert.ok(firstData.nextCursor);
+    assert.equal(firstData.offset, 0);
+    assert.equal(firstData.nextOffset, 1);
     assert.equal(firstData.matches[0].quote, "Target");
+    assert.match(first.content[0].text, /\*\*Next offset:\*\* 1/);
     const second = await execute(grep, {
       url: `${fixture.baseUrl}/technical`,
       query: "Target",
@@ -325,16 +328,17 @@ describe("shared document tools", () => {
       maxChars: 6,
       beforeLines: 0,
       afterLines: 0,
-      cursor: firstData.nextCursor,
+      offset: firstData.nextOffset,
     });
     assert.equal(
       (second.details.bounds as { returnedItems?: number }).returnedItems,
       1,
     );
     assert.equal(
-      (second.details.data as { nextCursor?: string }).nextCursor,
+      (second.details.data as { nextOffset?: number }).nextOffset,
       undefined,
     );
+    assert.equal((second.details.data as { offset?: number }).offset, 1);
   });
 
   it("expires evicted snapshot cursors instead of silently refetching", async () => {

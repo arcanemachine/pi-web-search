@@ -6,7 +6,6 @@ import {
   type GrepOutcomeData,
   type OutcomeEnvelope,
 } from "../contracts.js";
-import { optionsHash } from "../documents/cursor.js";
 import { matchSnapshot } from "../documents/match.js";
 import {
   GrepUrlContentParams,
@@ -31,12 +30,12 @@ export function registerGrepUrlContentTool(
   pi.registerTool({
     name: "grep_url_content",
     label: "Grep URL Content",
-    description: `Find literal text in a normalized document snapshot (default ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters; requests are clamped).`,
+    description: `Find literal text in a normalized document snapshot. Results include all matches by default; pathological results are bounded to ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters and expose a continuation offset.`,
     promptSnippet: "Find text in a static URL snapshot.",
     promptGuidelines: [
       "Use grep_url_content for targeted literal evidence from a known or likely static URL.",
       "For understanding or explaining one known static page, prefer summarize_url_content when it is available instead of collecting broad raw text.",
-      "Use cursors to continue exact cached matches when deliberate pagination is needed.",
+      "Results include all matches by default. If a result includes nextOffset, call grep_url_content again with the same arguments and set offset to nextOffset.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
       "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
     ],
@@ -77,6 +76,7 @@ export function registerGrepUrlContentTool(
       const requestedAfter = input.afterLines ?? 1;
       const requestedMatches =
         input.maxMatches ?? runtime.config.grepMaxMatches;
+      const startOrdinal = input.offset ?? 0;
       const requestedChars = input.maxChars ?? runtime.config.grepMaxChars;
       const beforeLines = Math.min(
         requestedBefore,
@@ -114,37 +114,11 @@ export function registerGrepUrlContentTool(
       ]) {
         if (warning) warnings.push(warning);
       }
-      const hash = optionsHash({
-        url,
-        query,
-        beforeLines,
-        afterLines,
-        maxMatches,
-        maxChars,
-        caseSensitive,
-        selector: selector ?? null,
-      });
-
-      let startOrdinal = 0;
-      let snapshotResult;
-      if (input.cursor) {
-        const decoded = runtime.cursors.decode(input.cursor, "grep", hash);
-        if (decoded.error) {
-          return formatDocumentOutcome(
-            errorOutcome("grep_url_content", decoded.error),
-          );
-        }
-        startOrdinal = decoded.value.position;
-        snapshotResult = runtime.service.getSnapshotById(
-          decoded.value.snapshotId,
-        );
-      } else {
-        snapshotResult = await runtime.service.getSnapshot(
-          { url, mode: "main", ...(selector ? { selector } : {}) },
-          input.forceRefresh ?? false,
-          signal,
-        );
-      }
+      const snapshotResult = await runtime.service.getSnapshot(
+        { url, mode: "main", ...(selector ? { selector } : {}) },
+        input.forceRefresh ?? false,
+        signal,
+      );
       if (snapshotResult.error) {
         return formatDocumentOutcome(
           errorOutcome("grep_url_content", snapshotResult.error),
@@ -175,7 +149,7 @@ export function registerGrepUrlContentTool(
             operation: "grep_url_content",
             status: "no_match",
             summary: "No literal matches found in the normalized snapshot",
-            data: { query, matches: [], totalMatches: 0 },
+            data: { query, matches: [], totalMatches: 0, offset: startOrdinal },
             warnings: boundedDocumentWarnings([
               ...warnings,
               ...snapshot.warnings,
@@ -185,33 +159,23 @@ export function registerGrepUrlContentTool(
               truncated: snapshot.truncated,
               returnedItems: 0,
               totalItems: 0,
-              returnedChars: 0,
-              totalChars: snapshot.characterCount,
               maxBytes: 48 * 1_024,
             },
           });
         }
         if (startOrdinal >= page.totalMatches || page.consumedMatches === 0) {
-          throw new InvariantError(
-            "Grep cursor position exceeds its snapshot matches",
+          return formatDocumentOutcome(
+            errorOutcome("grep_url_content", {
+              code: "invalid_request",
+              message: "offset exceeds the available match count",
+              retryable: false,
+            }),
           );
         }
 
         const nextPosition = startOrdinal + page.consumedMatches;
         const hasMore = nextPosition < page.totalMatches;
-        const nextCursor =
-          hasMore && snapshotResult.cache.storedAt
-            ? runtime.cursors.encode({
-                snapshotId: snapshot.id,
-                operation: "grep",
-                position: nextPosition,
-                optionsHash: hash,
-              })
-            : undefined;
-        const returnedChars = page.matches.reduce(
-          (total, match) => total + [...match.quote].length,
-          0,
-        );
+        const nextOffset = hasMore ? nextPosition : undefined;
         const outcome: OutcomeEnvelope<GrepOutcomeData> = {
           operation: "grep_url_content",
           status: "ok",
@@ -220,8 +184,8 @@ export function registerGrepUrlContentTool(
             query,
             matches: page.matches,
             totalMatches: page.totalMatches,
-            ...(input.cursor ? { cursor: input.cursor } : {}),
-            ...(nextCursor ? { nextCursor } : {}),
+            offset: startOrdinal,
+            ...(nextOffset === undefined ? {} : { nextOffset }),
           },
           warnings: boundedDocumentWarnings([
             ...warnings,
@@ -229,11 +193,9 @@ export function registerGrepUrlContentTool(
           ]),
           provenance: documentProvenance(snapshot, snapshotResult.cache),
           bounds: {
-            truncated: snapshot.truncated || hasMore,
+            truncated: snapshot.truncated || hasMore || page.truncated,
             returnedItems: page.consumedMatches,
             totalItems: page.totalMatches,
-            returnedChars,
-            totalChars: snapshot.characterCount,
             maxBytes: 48 * 1_024,
           },
         };

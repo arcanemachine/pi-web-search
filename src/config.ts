@@ -82,9 +82,9 @@ export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
   readMaxLimitChars: 40_000,
   grepMaxQueryChars: 500,
   grepMaxContextLines: 20,
-  grepMaxMatches: 20,
-  grepMaxLimitMatches: 100,
-  grepMaxChars: 12_000,
+  grepMaxMatches: 1_000,
+  grepMaxLimitMatches: 1_000,
+  grepMaxChars: 40_000,
   grepMaxLimitChars: 40_000,
   summarizationEnabled: true,
 });

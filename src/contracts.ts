@@ -117,8 +117,8 @@ export interface GrepOutcomeData {
   query: string;
   matches: GrepMatch[];
   totalMatches: number;
-  cursor?: string;
-  nextCursor?: string;
+  offset: number;
+  nextOffset?: number;
 }
 
 export interface SummaryGeneration {
@@ -183,7 +183,7 @@ export interface GrepUrlContentRequest {
   maxChars?: number;
   caseSensitive?: boolean;
   selector?: string;
-  cursor?: string;
+  offset?: number;
   forceRefresh?: boolean;
 }
 

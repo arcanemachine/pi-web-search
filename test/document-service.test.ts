@@ -174,7 +174,7 @@ describe("shared document service", () => {
     );
   });
 
-  it("uses authenticated opaque operation- and option-bound cursors", () => {
+  it("uses authenticated opaque operation- and option-bound read cursors", () => {
     const cursors = new CursorService(new Uint8Array(32).fill(7));
     const hash = optionsHash({ url: "https://example.com", mode: "main" });
     const token = cursors.encode({
@@ -185,10 +185,6 @@ describe("shared document service", () => {
     });
     assert.doesNotMatch(token, /example|snapshot/);
     assert.equal(cursors.decode(token, "read", hash).value?.position, 12);
-    assert.equal(
-      cursors.decode(token, "grep", hash).error?.code,
-      "invalid_request",
-    );
     assert.equal(
       cursors.decode(token, "read", optionsHash({ different: true })).error
         ?.code,
