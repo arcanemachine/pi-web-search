@@ -35,7 +35,7 @@
     "format": "prettier --write index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md CHANGELOG.md",
     "format:check": "prettier --check index.ts \"src/**/*.ts\" \"test/**/*.ts\" package.json README.md AGENTS.md CHANGELOG.md",
     "test": "node --import tsx --test test/*.test.ts",
-    "prepublishOnly": "npm run format:check && npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "npm run format:check && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

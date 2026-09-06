@@ -8,14 +8,16 @@ Commit when a task is completed.
 
 `IDEAS.DEFERRED.md` is intentionally outside the active workflow. Do not read, raise, research, or plan anything from it unless the user explicitly asks to revisit deferred work.
 
-## Pre-commit
+## Verification
 
-Run the child package's complete, independently installable validation:
+Run before completion:
 
 ```bash
+npm run format:check
 npm run typecheck
-npm run format
-npm test
+npm run test
+npm run build
+npm pack --dry-run
 ```
 
 The package scripts cover `index.ts`, all TypeScript under `src/` and `test/`, and the maintained package Markdown files.
