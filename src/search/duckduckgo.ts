@@ -1,5 +1,4 @@
 import { createAbortScope } from "../abort.js";
-import { byteLength } from "../bounds.js";
 import {
   operationalError,
   type OperationalError,
@@ -9,6 +8,7 @@ import {
 } from "../contracts.js";
 import type { SearchBackend, SearchBackendContext } from "./backend.js";
 import { parseDuckDuckGoHtml } from "./duckduckgo-parser.js";
+import { readBoundedResponseText } from "./response.js";
 
 const DUCKDUCKGO_ENDPOINT = "https://html.duckduckgo.com/html";
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -269,22 +269,16 @@ export class DuckDuckGoBackend implements SearchBackend {
       );
     }
 
-    const contentLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-      return backendError(
-        request,
-        operationalError(
-          "parse_failed",
-          "DuckDuckGo response exceeded 2 MiB",
-          false,
-        ),
-        duration(),
-      );
-    }
-
     let html: string;
     try {
-      html = await response.text();
+      const body = await readBoundedResponseText(
+        response,
+        MAX_RESPONSE_BYTES,
+        signal,
+        "DuckDuckGo response exceeded 2 MiB",
+      );
+      if (body.error) return backendError(request, body.error, duration());
+      html = body.text ?? "";
     } catch (error) {
       if (parentSignal?.aborted) throw parentSignal.reason ?? error;
       if (signal.aborted) {
@@ -316,18 +310,6 @@ export class DuckDuckGoBackend implements SearchBackend {
       );
     }
 
-    if (byteLength(html) > MAX_RESPONSE_BYTES) {
-      return backendError(
-        request,
-        operationalError(
-          "parse_failed",
-          "DuckDuckGo response exceeded 2 MiB",
-          false,
-        ),
-        duration(),
-      );
-    }
-
     const parsed = parseDuckDuckGoHtml(html, request.limit ?? 5);
     if (parsed.kind === "blocked") {
       return backendError(
@@ -347,7 +329,10 @@ export class DuckDuckGoBackend implements SearchBackend {
         duration(),
       );
     }
-    const results = parsed.kind === "results" ? parsed.results : [];
+    const results =
+      parsed.kind === "results"
+        ? parsed.results.slice(0, request.limit ?? 5)
+        : [];
     const status = results.length === 0 ? "no_results" : "ok";
     return {
       operation: "search_web",

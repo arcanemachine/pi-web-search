@@ -186,6 +186,61 @@ describe("outcome formatter", () => {
     );
   });
 
+  it("renders actionable retry and backend diagnostics", () => {
+    const formatted = formatOutcome({
+      operation: "search_web",
+      status: "error",
+      summary: "Brave is unavailable",
+      error: operationalError(
+        "backend_unavailable",
+        "Brave is unavailable",
+        false,
+      ),
+      warnings: [
+        {
+          code: "backend_blocked",
+          message: "duckduckgo: request was blocked",
+          source: "duckduckgo",
+        },
+      ],
+      provenance: {
+        backend: "duckduckgo",
+        attempts: [
+          {
+            backend: "duckduckgo",
+            status: "error",
+            durationMs: 10,
+            errorCode: "blocked",
+          },
+          {
+            backend: "brave",
+            status: "error",
+            durationMs: 2,
+            errorCode: "backend_unavailable",
+          },
+        ],
+      },
+    });
+
+    assert.match(formatted.content[0].text, /do not retry unchanged/);
+    assert.match(
+      formatted.content[0].text,
+      /duckduckgo\(blocked\) → brave\(backend_unavailable\)/,
+    );
+    assert.match(formatted.content[0].text, /Other diagnostics/);
+  });
+
+  it("renders retry timing for retryable errors", () => {
+    const formatted = formatOutcome({
+      operation: "search_web",
+      status: "error",
+      summary: "Rate limited",
+      error: operationalError("rate_limited", "Rate limited", true, 1_500),
+    });
+
+    assert.match(formatted.content[0].text, /wait at least 1500ms/);
+  });
+
   it("returns non-empty content for every operational error code", () => {
     for (const code of OPERATIONAL_ERROR_CODES) {
       const formatted = formatOutcome({

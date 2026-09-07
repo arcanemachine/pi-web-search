@@ -38,6 +38,31 @@ describe("SearXNG backend", () => {
     assert.equal(requested?.searchParams.get("q"), request.query);
   });
 
+  it("honors the requested result limit before returning the outcome", async () => {
+    const backend = new SearxngBackend("https://search.example", {
+      fetch: (async () =>
+        jsonResponse({
+          results: [
+            { title: "First", url: "https://example.com/1", content: "One" },
+            {
+              title: "Second",
+              url: "https://example.com/2",
+              content: "Two",
+            },
+          ],
+        })) as typeof fetch,
+      now: () => 100,
+    });
+
+    const outcome = await backend.search(
+      { ...request, limit: 1 },
+      { timeoutMs: 1_000 },
+    );
+
+    assert.equal(outcome.data?.results.length, 1);
+    assert.equal(outcome.data?.results[0]?.title, "First");
+  });
+
   it("distinguishes legitimate emptiness from supported failure evidence", async () => {
     const clean = new SearxngBackend("https://search.example", {
       fetch: (async () => jsonResponse({ results: [] })) as typeof fetch,

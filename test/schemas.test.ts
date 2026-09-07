@@ -80,11 +80,15 @@ describe("public request schemas", () => {
 
   it("validates search query bounds after trimming", () => {
     assert.equal(
+      Value.Check(SearchWebParams, { query: "x".repeat(501) }),
+      false,
+    );
+    assert.equal(
       validateSearchWebRequest({ query: "   " })?.code,
       "invalid_request",
     );
     assert.equal(
-      validateSearchWebRequest({ query: `  ${"x".repeat(500)}  ` }),
+      validateSearchWebRequest({ query: "x".repeat(500) }),
       undefined,
     );
     assert.equal(
@@ -98,6 +102,13 @@ describe("public request schemas", () => {
   });
 
   it("rejects blank document selectors and oversized literal queries", () => {
+    assert.equal(
+      Value.Check(GrepUrlContentParams, {
+        url: "https://example.com",
+        query: "x".repeat(10_001),
+      }),
+      false,
+    );
     assert.equal(
       validateReadUrlContentRequest({
         url: "https://example.com",

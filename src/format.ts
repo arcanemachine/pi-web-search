@@ -203,6 +203,32 @@ function formatGrep(details: JsonObject): string[] {
   return lines;
 }
 
+function attemptLines(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const attempts = value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const backend = stringValue(item.backend, "backend");
+    const status = stringValue(item.status, "unknown");
+    const errorCode = stringValue(item.errorCode);
+    return [`${backend}(${errorCode || status})`];
+  });
+  return attempts.length > 0 ? [`**Attempts:** ${attempts.join(" → ")}`] : [];
+}
+
+function retryLines(error: Record<string, unknown> | undefined): string[] {
+  const retryable = error?.retryable === true;
+  const retryAfterMs = numberValue(error?.retryAfterMs, -1);
+  if (!retryable) {
+    return ["**Retry guidance:** do not retry unchanged."];
+  }
+  if (retryAfterMs >= 0) {
+    return [
+      `**Retry guidance:** wait at least ${retryAfterMs}ms before retrying.`,
+    ];
+  }
+  return ["**Retry guidance:** retry later, not immediately."];
+}
+
 function formatSummary(details: JsonObject): string[] {
   const data = isRecord(details.data) ? details.data : undefined;
   const summary = stringValue(data?.summary, stringValue(details.summary));
@@ -238,10 +264,19 @@ export function formatOutcomeMarkdown(details: JsonObject): string {
       ),
     );
     const code = inline(stringValue(error?.code, "unknown"));
-    return [
+    const lines = [
       `**${operation} failed:** ${message}`,
       `Error code: \`${code}\``,
-    ].join("\n\n");
+      ...retryLines(error),
+      ...attemptLines(
+        isRecord(details.provenance) ? details.provenance.attempts : undefined,
+      ),
+    ];
+    const warnings = warningLines(details.warnings);
+    if (warnings.length > 0) {
+      lines.push("**Other diagnostics:**", ...warnings);
+    }
+    return lines.join("\n\n");
   }
 
   let lines: string[];

@@ -249,6 +249,25 @@ describe("search_web tool", () => {
     });
   }
 
+  it("keeps the primary failure when an unavailable fallback masks it", async () => {
+    const config: PiWebSearchConfig = {
+      ...DEFAULT_CONFIG,
+      backends: ["duckduckgo", "brave"],
+    };
+    const tool = controller(
+      config,
+      (async () => new Response("", { status: 202 })) as typeof fetch,
+    );
+    const result = await execute(tool, { query: "query" });
+
+    assert.equal(result.details.status, "error");
+    assert.equal((result.details.error as { code?: string }).code, "blocked");
+    assert.equal(
+      (result.details.warnings as Array<{ source?: string }>)[0].source,
+      "brave",
+    );
+  });
+
   it("returns Brave-only missing-key errors without fetching", async () => {
     let calls = 0;
     const config: PiWebSearchConfig = {

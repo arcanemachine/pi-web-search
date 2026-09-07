@@ -64,6 +64,34 @@ describe("Brave Search backend", () => {
     assert.equal(headers?.get("x-subscription-token"), "fake-brave-token");
   });
 
+  it("honors the requested result limit before returning the outcome", async () => {
+    const brave = backend((async () =>
+      jsonResponse({
+        web: {
+          results: [
+            {
+              title: "First",
+              url: "https://example.com/1",
+              description: "One",
+            },
+            {
+              title: "Second",
+              url: "https://example.com/2",
+              description: "Two",
+            },
+          ],
+        },
+      })) as typeof fetch);
+
+    const outcome = await brave.search(
+      { ...request, limit: 1 },
+      { timeoutMs: 1_000 },
+    );
+
+    assert.equal(outcome.data?.results.length, 1);
+    assert.equal(outcome.data?.results[0]?.title, "First");
+  });
+
   it("does not expose the API key in public outcome fields", async () => {
     const marker = "FAKE_BRAVE_SECRET_123";
     let outboundKey: string | null = null;

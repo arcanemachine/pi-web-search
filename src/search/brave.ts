@@ -1,5 +1,4 @@
 import { createAbortScope } from "../abort.js";
-import { byteLength } from "../bounds.js";
 import {
   operationalError,
   type OperationalError,
@@ -9,6 +8,7 @@ import {
 } from "../contracts.js";
 import type { SearchBackend, SearchBackendContext } from "./backend.js";
 import { parseBravePayload } from "./validation.js";
+import { readBoundedResponseText } from "./response.js";
 
 const BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -336,22 +336,16 @@ export class BraveBackend implements SearchBackend {
         duration(),
       );
     }
-    const contentLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-      return backendError(
-        request,
-        operationalError(
-          "parse_failed",
-          "Brave Search response exceeded 2 MiB",
-          false,
-        ),
-        duration(),
-      );
-    }
-
     let text: string;
     try {
-      text = await response.text();
+      const body = await readBoundedResponseText(
+        response,
+        MAX_RESPONSE_BYTES,
+        signal,
+        "Brave Search response exceeded 2 MiB",
+      );
+      if (body.error) return backendError(request, body.error, duration());
+      text = body.text ?? "";
     } catch (error) {
       if (parentSignal?.aborted) throw parentSignal.reason ?? error;
       if (signal.aborted) {
@@ -367,17 +361,6 @@ export class BraveBackend implements SearchBackend {
           "fetch_failed",
           "Unable to read Brave Search response",
           true,
-        ),
-        duration(),
-      );
-    }
-    if (byteLength(text) > MAX_RESPONSE_BYTES) {
-      return backendError(
-        request,
-        operationalError(
-          "parse_failed",
-          "Brave Search response exceeded 2 MiB",
-          false,
         ),
         duration(),
       );
@@ -400,15 +383,16 @@ export class BraveBackend implements SearchBackend {
     const parsed = parseBravePayload(native);
     if (!parsed.ok) return backendError(request, parsed.error, duration());
 
-    const status = parsed.value.results.length === 0 ? "no_results" : "ok";
+    const results = parsed.value.results.slice(0, request.limit ?? 5);
+    const status = results.length === 0 ? "no_results" : "ok";
     return {
       operation: "search_web",
       status,
       summary:
         status === "ok"
-          ? `Brave Search returned ${parsed.value.results.length} result${parsed.value.results.length === 1 ? "" : "s"}`
+          ? `Brave Search returned ${results.length} result${results.length === 1 ? "" : "s"}`
           : "Brave Search returned no results",
-      data: { query: request.query, results: parsed.value.results },
+      data: { query: request.query, results },
       provenance: {
         backend: "brave",
         durationMs: duration(),

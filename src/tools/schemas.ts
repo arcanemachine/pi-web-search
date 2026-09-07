@@ -15,6 +15,7 @@ export const SearchWebParams = Type.Object(
   {
     query: Type.String({
       minLength: 1,
+      maxLength: 500,
       description: "Web search query (maximum 500 characters)",
     }),
     limit: Type.Optional(
@@ -138,7 +139,8 @@ export const GrepUrlContentParams = Type.Object(
     }),
     query: Type.String({
       minLength: 1,
-      description: "Literal text to find",
+      maxLength: 10_000,
+      description: "Literal text to find (maximum 10,000 characters)",
     }),
     beforeLines: Type.Optional(
       Type.Integer({ minimum: 0, description: "Context lines before matches" }),

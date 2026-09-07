@@ -117,7 +117,10 @@ export class SearchService {
   ): Promise<OutcomeEnvelope<SearchOutcomeData>> {
     const attempts: BackendAttempt[] = [];
     const precedingWarnings: Diagnostic[] = [];
-    let finalErrorOutcome: OutcomeEnvelope<SearchOutcomeData> | undefined;
+    const backendErrors: Array<{
+      backend: SearchBackendName;
+      outcome: OutcomeEnvelope<SearchOutcomeData>;
+    }> = [];
 
     for (const backendName of this.config.backends) {
       const backend = this.backends.get(backendName);
@@ -143,7 +146,7 @@ export class SearchService {
             `${backendName} returned an error without details`,
           );
         }
-        finalErrorOutcome = outcome;
+        backendErrors.push({ backend: backendName, outcome });
         precedingWarnings.push({
           code: `backend_${outcome.error?.code ?? "failed"}`,
           message: `${backendName}: ${outcome.summary}`,
@@ -167,27 +170,42 @@ export class SearchService {
 
     const finalBackend = this.config.backends.at(-1);
     const finalAttempt = attempts.at(-1);
-    if (!finalBackend || !finalAttempt) {
+    if (!finalBackend || !finalAttempt || backendErrors.length === 0) {
       throw new InvariantError(
-        "Search dispatch completed without a backend attempt",
+        "Search dispatch completed without a backend error",
       );
     }
-    const final = precedingWarnings.pop();
-    const error = finalErrorOutcome?.error;
+
+    let selectedIndex = backendErrors.length - 1;
+    for (let index = backendErrors.length - 1; index >= 0; index -= 1) {
+      if (backendErrors[index].outcome.error?.code !== "backend_unavailable") {
+        selectedIndex = index;
+        break;
+      }
+    }
+    const selected = backendErrors[selectedIndex].outcome;
+    const error = selected.error;
     if (!error) {
       throw new InvariantError(
-        "Search dispatch ended without a final backend error",
+        "Search dispatch selected a backend outcome without an error",
       );
     }
+    const warnings = backendErrors
+      .filter((_entry, index) => index !== selectedIndex)
+      .map(({ backend, outcome }) => ({
+        code: `backend_${outcome.error?.code ?? "failed"}`,
+        message: `${backend}: ${outcome.summary}`,
+        source: backend,
+      }));
     return {
       operation: "search_web",
       status: "error",
-      summary: final?.message ?? error.message,
+      summary: selected.summary,
       data: { query: request.query, results: [] },
       error,
-      warnings: precedingWarnings,
+      warnings,
       provenance: {
-        backend: finalBackend,
+        backend: selected.provenance?.backend ?? finalBackend,
         attempts,
         fetchedAt: new Date(this.now()).toISOString(),
         cache: { status: "miss" },
