@@ -479,6 +479,7 @@ describe("shared document tools", () => {
     const error = await execute(read, { url: "ftp://example.test/file" });
     assert.match(error.content[0].text, /^\*\*read_url_content failed:\*\*/);
     assert.match(error.content[0].text, /Error code: `invalid_request`/);
+    assert.match(error.content[0].text, /do not retry unchanged/);
     assert.equal(
       (error.details.error as { code?: string }).code,
       "invalid_request",

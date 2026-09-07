@@ -144,21 +144,7 @@ export function formatReadDocumentOutcome(
   metadata?: ReadContentMetadata,
 ): FormattedOutcome | undefined {
   const formatted = formatDocumentOutcome(outcome);
-  if (outcome.status === "error") {
-    const message = inlineMetadata(
-      truncateChars(outcome.error?.message ?? "Read failed", 500).value,
-    );
-    const code = outcome.error?.code ?? "unknown";
-    return {
-      ...formatted,
-      content: [
-        {
-          type: "text",
-          text: `**read_url_content failed:** ${message}\n\nError code: \`${inlineMetadata(code)}\``,
-        },
-      ],
-    };
-  }
+  if (outcome.status === "error") return formatted;
   if (!metadata || wasFormatTruncated(formatted)) return undefined;
   const source = renderReadSource(metadata.source, metadata.contentType);
   const footer = [

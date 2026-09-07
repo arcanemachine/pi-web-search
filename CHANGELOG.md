@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.3 - 2026-09-06
+
+### Changed
+
+- Search response bodies are streamed and bounded before parsing, backend results honor requested limits, and failed fallback chains preserve the meaningful primary error with visible retry guidance and backend diagnostics.
+- Search and literal-find query schemas now advertise their hard length limits.
+- Document-tool failures now show the same retry guidance as search failures.
+
 ## 1.0.2 - 2026-09-03
 
 ### Changed
