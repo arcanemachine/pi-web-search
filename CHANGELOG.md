@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.0.0 - 2026-09-06
+
+### Changed
+
+- Renamed `grep_url_content` to `find_text_in_url_content` so the web-page text search tool is distinct from Pi's local-file tools.
+
 ## 1.0.3 - 2026-09-06
 
 ### Changed
