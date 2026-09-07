@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Value } from "@sinclair/typebox/value";
 import {
-  GrepUrlContentParams,
+  FindTextInUrlContentParams,
   ReadUrlContentParams,
   SearchWebParams,
   SummarizeUrlContentParams,
-  validateGrepUrlContentRequest,
+  validateFindTextInUrlContentRequest,
   validateSummarizeUrlContentRequest,
   validateReadUrlContentRequest,
   validateSearchWebRequest,
@@ -62,7 +62,7 @@ describe("public request schemas", () => {
   it("rejects invalid numeric bounds and extra fields", () => {
     assert.equal(Value.Check(SearchWebParams, { query: "x", limit: 0 }), false);
     assert.equal(
-      Value.Check(GrepUrlContentParams, {
+      Value.Check(FindTextInUrlContentParams, {
         url: "https://example.com",
         query: "x",
         beforeLines: -1,
@@ -103,7 +103,7 @@ describe("public request schemas", () => {
 
   it("rejects blank document selectors and oversized literal queries", () => {
     assert.equal(
-      Value.Check(GrepUrlContentParams, {
+      Value.Check(FindTextInUrlContentParams, {
         url: "https://example.com",
         query: "x".repeat(10_001),
       }),
@@ -124,7 +124,7 @@ describe("public request schemas", () => {
       "invalid_request",
     );
     assert.equal(
-      validateGrepUrlContentRequest({
+      validateFindTextInUrlContentRequest({
         url: "https://example.com",
         query: "x".repeat(10_001),
       })?.code,
@@ -134,7 +134,7 @@ describe("public request schemas", () => {
 
   it("accepts grep offsets and keeps read cursor validation", () => {
     assert.equal(
-      Value.Check(GrepUrlContentParams, {
+      Value.Check(FindTextInUrlContentParams, {
         url: "https://example.com",
         query: "text",
         offset: 4,
@@ -142,7 +142,7 @@ describe("public request schemas", () => {
       true,
     );
     assert.equal(
-      Value.Check(GrepUrlContentParams, {
+      Value.Check(FindTextInUrlContentParams, {
         url: "https://example.com",
         query: "text",
         cursor: "cursor",

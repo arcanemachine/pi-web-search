@@ -3,14 +3,14 @@ import {
   errorOutcome,
   InvariantError,
   type Diagnostic,
-  type GrepOutcomeData,
+  type FindTextOutcomeData,
   type OutcomeEnvelope,
 } from "../contracts.js";
 import { matchSnapshot } from "../documents/match.js";
 import {
-  GrepUrlContentParams,
-  type GrepUrlContentParams as GrepInput,
-  validateGrepUrlContentRequest,
+  FindTextInUrlContentParams,
+  type FindTextInUrlContentParams as FindTextInput,
+  validateFindTextInUrlContentRequest,
 } from "./schemas.js";
 import {
   boundedDocumentWarnings,
@@ -22,50 +22,55 @@ import {
 } from "./document-shared.js";
 import { renderToolCall, renderToolResult } from "./rendering.js";
 
-export function registerGrepUrlContentTool(
+export function registerFindTextInUrlContentTool(
   pi: ExtensionAPI,
   getRuntime: () => DocumentToolRuntime,
 ): void {
   const effective = getRuntime().config;
   pi.registerTool({
-    name: "grep_url_content",
-    label: "Grep URL Content",
+    name: "find_text_in_url_content",
+    label: "Find Text in URL Content",
     description: `Find literal text in a normalized document snapshot. Results include all matches by default; pathological results are bounded to ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters and expose a continuation offset.`,
     promptSnippet: "Find text in a static URL snapshot.",
     promptGuidelines: [
-      "Use grep_url_content to find literal text in a web page at a known URL, usually after search_web identifies the page.",
-      "Do not use grep_url_content to search local files or directories.",
+      "Use find_text_in_url_content to find literal text in a web page at a known URL, usually after search_web identifies the page.",
+      "Do not use find_text_in_url_content to search local files or directories.",
       "For understanding or explaining one known static page, prefer summarize_url_content when it is available instead of collecting broad raw text.",
-      "Results include all matches by default with no surrounding context lines. Set beforeLines and afterLines to positive values when surrounding context is useful. If a result includes nextOffset, call grep_url_content again with the same arguments and set offset to nextOffset.",
+      "Results include all matches by default with no surrounding context lines. Set beforeLines and afterLines to positive values when surrounding context is useful. If a result includes nextOffset, call find_text_in_url_content again with the same arguments and set offset to nextOffset.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
       "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
     ],
-    parameters: GrepUrlContentParams,
+    parameters: FindTextInUrlContentParams,
 
     renderCall(args, theme) {
-      return renderToolCall("grep_url_content", args, theme);
+      return renderToolCall("find_text_in_url_content", args, theme);
     },
 
     renderResult(result, { expanded }, theme) {
-      return renderToolResult("grep_url_content", result, expanded, theme);
+      return renderToolResult(
+        "find_text_in_url_content",
+        result,
+        expanded,
+        theme,
+      );
     },
 
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
       const runtime = getRuntime();
-      const validation = validateGrepUrlContentRequest(params);
+      const validation = validateFindTextInUrlContentRequest(params);
       if (validation) {
         return formatDocumentOutcome(
-          errorOutcome("grep_url_content", validation),
+          errorOutcome("find_text_in_url_content", validation),
         );
       }
-      const input = params as GrepInput;
+      const input = params as FindTextInput;
       const parsedUrl = new URL(input.url);
       parsedUrl.hash = "";
       const url = parsedUrl.toString();
       const query = input.query.trim();
       if ([...query].length > runtime.config.grepMaxQueryChars) {
         return formatDocumentOutcome(
-          errorOutcome("grep_url_content", {
+          errorOutcome("find_text_in_url_content", {
             code: "invalid_request",
             message: `query exceeds the configured maximum of ${runtime.config.grepMaxQueryChars} characters`,
             retryable: false,
@@ -98,7 +103,7 @@ export function registerGrepUrlContentTool(
       const caseSensitive = input.caseSensitive ?? false;
       if (maxChars < [...query].length) {
         return formatDocumentOutcome(
-          errorOutcome("grep_url_content", {
+          errorOutcome("find_text_in_url_content", {
             code: "invalid_request",
             message:
               "maxChars must be large enough to contain the literal query",
@@ -122,7 +127,7 @@ export function registerGrepUrlContentTool(
       );
       if (snapshotResult.error) {
         return formatDocumentOutcome(
-          errorOutcome("grep_url_content", snapshotResult.error),
+          errorOutcome("find_text_in_url_content", snapshotResult.error),
         );
       }
       const snapshot = snapshotResult.snapshot;
@@ -147,7 +152,7 @@ export function registerGrepUrlContentTool(
         );
         if (page.totalMatches === 0 && startOrdinal === 0) {
           return formatDocumentOutcome({
-            operation: "grep_url_content",
+            operation: "find_text_in_url_content",
             status: "no_match",
             summary: "No literal matches found in the normalized snapshot",
             data: { query, matches: [], totalMatches: 0, offset: startOrdinal },
@@ -166,7 +171,7 @@ export function registerGrepUrlContentTool(
         }
         if (startOrdinal >= page.totalMatches || page.consumedMatches === 0) {
           return formatDocumentOutcome(
-            errorOutcome("grep_url_content", {
+            errorOutcome("find_text_in_url_content", {
               code: "invalid_request",
               message: "offset exceeds the available match count",
               retryable: false,
@@ -177,8 +182,8 @@ export function registerGrepUrlContentTool(
         const nextPosition = startOrdinal + page.consumedMatches;
         const hasMore = nextPosition < page.totalMatches;
         const nextOffset = hasMore ? nextPosition : undefined;
-        const outcome: OutcomeEnvelope<GrepOutcomeData> = {
-          operation: "grep_url_content",
+        const outcome: OutcomeEnvelope<FindTextOutcomeData> = {
+          operation: "find_text_in_url_content",
           status: "ok",
           summary: `Returned ${page.consumedMatches} of ${page.totalMatches} literal matches`,
           data: {

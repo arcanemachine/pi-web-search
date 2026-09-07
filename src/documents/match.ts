@@ -1,4 +1,4 @@
-import type { GrepMatch } from "../contracts.js";
+import type { FindTextMatch } from "../contracts.js";
 import type { DocumentLine, DocumentSnapshot } from "./types.js";
 
 interface MatchPosition {
@@ -16,7 +16,7 @@ interface MatchWindow {
 }
 
 export interface MatchPage {
-  matches: GrepMatch[];
+  matches: FindTextMatch[];
   totalMatches: number;
   consumedMatches: number;
   truncated: boolean;
@@ -141,7 +141,7 @@ export function matchSnapshot(
     snapshot.lines.length,
   );
   const contentCharacters = [...snapshot.content];
-  const records: GrepMatch[] = [];
+  const records: FindTextMatch[] = [];
   let remainingChars = maxChars;
   let consumedMatches = 0;
   let truncated = false;

@@ -46,7 +46,7 @@ function toolsFor(
   const tools: RegisteredTool[] = [];
   let activeTools = [
     "read_url_content",
-    "grep_url_content",
+    "find_text_in_url_content",
     "search_web",
     "bash",
   ];
@@ -161,7 +161,9 @@ describe("summarize_url_content tool", () => {
     const readGuidelines =
       disabledTools.get("read_url_content")?.promptGuidelines?.join("\n") ?? "";
     const grepGuidelines =
-      disabledTools.get("grep_url_content")?.promptGuidelines?.join("\n") ?? "";
+      disabledTools
+        .get("find_text_in_url_content")
+        ?.promptGuidelines?.join("\n") ?? "";
     assert.match(readGuidelines, /exact source text/);
     assert.match(readGuidelines, /when it is available/);
     assert.match(grepGuidelines, /web page at a known URL/);

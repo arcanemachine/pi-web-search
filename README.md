@@ -71,14 +71,14 @@ Use `-l` when removing a project-local installation. Start or restart Pi after i
 | Capability                  | Requirement                                                                                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `read_url_content`          | No external executable or service; requires outbound HTTP(S).                                                                        |
-| `grep_url_content`          | No external executable or service; requires outbound HTTP(S).                                                                        |
+| `find_text_in_url_content`  | No external executable or service; requires outbound HTTP(S).                                                                        |
 | `search_web` via DuckDuckGo | Outbound HTTPS to DuckDuckGo's HTML search endpoint; no external executable or service.                                              |
 | `search_web` via SearXNG    | A reachable SearXNG service with JSON enabled.                                                                                       |
 | `search_web` via Brave      | A Brave Search API subscription key in `braveApiKey` settings or `BRAVE_SEARCH_API_KEY`, and outbound HTTPS.                         |
 | HTML normalization          | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi.            |
 | `summarize_url_content`     | Optional model access through the active Pi model or configured `summarizerModel`; enabled by default; disableable by configuration. |
 
-You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and grep tools work without any search backend. The default backend is `duckduckgo`; SearXNG and Brave are opt-in. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
+You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and text-finding tools work without any search backend. The default backend is `duckduckgo`; SearXNG and Brave are opt-in. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
 
 ## Choose a search backend
 
@@ -278,7 +278,7 @@ Generates a bounded objective-focused answer from one normalized static document
 
 Summarization is enabled by default. `summarizerModel` optionally selects a configured `provider/model`; when it is absent, the active Pi model is used. An invalid configured model never silently falls back. Successful results identify the actual provider/model and configured thinking level when present, preserve source provenance, and return only the bounded generated answer to the parent context. The model sees a bounded initial excerpt and can inspect more of the same snapshot only through private line-read and literal-grep tools. References are best-effort rather than verified citations. Generated summaries are not cached, while normalized source snapshots retain the existing document cache behavior. The visible result presents the generated prose as Markdown with concise source/model metadata; usage accounting, generation counters, references, provenance, and bounds remain in structured `details`.
 
-### `grep_url_content`
+### `find_text_in_url_content`
 
 Finds literal text in the same normalized snapshots used by `read_url_content`. The visible result is Markdown with match counts, match ranges, line ranges, headings, quoted context, continuation offsets when needed, and warnings; exact offsets and match objects remain in structured `details`.
 
@@ -299,7 +299,7 @@ Finds literal text in the same normalized snapshots used by `read_url_content`. 
 
 Matches include exact bounded quotes, heading breadcrumbs, line numbers, and normalized character offsets. Surrounding context defaults to zero lines before and after each match; set `beforeLines` and `afterLines` when context is useful. Overlapping context windows are coalesced. Results include all matches by default. When the result is too large for the tool-output budget, the response is marked truncated and includes `nextOffset`; call the tool again with the same arguments and set `offset` to `nextOffset`. No matches return explicit `status: "no_match"`.
 
-Read cursors are opaque, authenticated, process-local, and bound to the exact cached snapshot. Expired or evicted read snapshots return `cursor_expired`; read cursors never silently continue against refetched content. Grep continuation uses a simple zero-based match offset because snapshot expiry and page changes are acceptable edge cases.
+Read cursors are opaque, authenticated, process-local, and bound to the exact cached snapshot. Expired or evicted read snapshots return `cursor_expired`; read cursors never silently continue against refetched content. Text-finding continuation uses a simple zero-based match offset because snapshot expiry and page changes are acceptable edge cases.
 
 ## Configuration
 
@@ -347,7 +347,7 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
 }
 ```
 
-The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Grep defaults are intentionally high so ordinary queries return every match; pathological results are bounded and expose a `nextOffset` continuation hint. Summarization is enabled by default. Set `summarizationEnabled` to `false` to disable execution and remove only `summarize_url_content` from Pi's active tool set and system prompt after reload; its registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax. When absent, summarization uses the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, provider defaults apply and the parent thinking level is not inherited. For the supported OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort`; `off` maps to `none` for Codex. Unsupported APIs and non-reasoning models fail before dispatch instead of silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
+The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Text-finding defaults are intentionally high so ordinary queries return every match; pathological results are bounded and expose a `nextOffset` continuation hint. Summarization is enabled by default. Set `summarizationEnabled` to `false` to disable execution and remove only `summarize_url_content` from Pi's active tool set and system prompt after reload; its registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax. When absent, summarization uses the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, provider defaults apply and the parent thinking level is not inherited. For the supported OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort`; `off` maps to `none` for Codex. Unsupported APIs and non-reasoning models fail before dispatch instead of silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
 
 A readable explicit summarizer setup is:
 
@@ -448,7 +448,7 @@ Operational errors include stable codes such as `invalid_request`, `backend_unav
 
 ## Research workflow
 
-Search results are discovery aids; inspect a relevant source before relying on them. Use `summarize_url_content` for a focused explanation of one static page. Use `read_url_content` for exact text, quotations, code, commands, or deliberate pagination. Use `grep_url_content` for targeted literal evidence. For broad, multi-page, or cross-source research, delegate to a suitable research subagent when available. Search, read, and grep stay deterministic; summarization is model-generated and isolated.
+Search results are discovery aids; inspect a relevant source before relying on them. Use `summarize_url_content` for a focused explanation of one static page. Use `read_url_content` for exact text, quotations, code, commands, or deliberate pagination. Use `find_text_in_url_content` for targeted literal evidence. For broad, multi-page, or cross-source research, delegate to a suitable research subagent when available. Search, read, and text-finding stay deterministic; summarization is model-generated and isolated.
 
 ## Development
 

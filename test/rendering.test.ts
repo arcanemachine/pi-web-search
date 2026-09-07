@@ -39,7 +39,7 @@ describe("tool presentation renderers", () => {
     for (const operation of [
       "search_web",
       "read_url_content",
-      "grep_url_content",
+      "find_text_in_url_content",
       "summarize_url_content",
     ] as const) {
       assert.match(
@@ -146,7 +146,7 @@ describe("tool presentation renderers", () => {
       },
     };
     const grep = formatOutcome({
-      operation: "grep_url_content",
+      operation: "find_text_in_url_content",
       status: "ok",
       summary: "Returned matches",
       data: {
@@ -184,7 +184,7 @@ describe("tool presentation renderers", () => {
 
     for (const [operation, result, preview, complete] of [
       ["read_url_content", read, "Full body text", "Full body text"],
-      ["grep_url_content", grep, "target value", "target value"],
+      ["find_text_in_url_content", grep, "target value", "target value"],
       [
         "summarize_url_content",
         summary,

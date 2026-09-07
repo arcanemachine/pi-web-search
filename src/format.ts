@@ -163,7 +163,7 @@ function formatRead(details: JsonObject): string[] {
   return lines;
 }
 
-function formatGrep(details: JsonObject): string[] {
+function formatFindText(details: JsonObject): string[] {
   const data = isRecord(details.data) ? details.data : undefined;
   const query = stringValue(data?.query);
   const matches = Array.isArray(data?.matches) ? data.matches : [];
@@ -287,8 +287,8 @@ export function formatOutcomeMarkdown(details: JsonObject): string {
     case "read_url_content":
       lines = formatRead(details);
       break;
-    case "grep_url_content":
-      lines = formatGrep(details);
+    case "find_text_in_url_content":
+      lines = formatFindText(details);
       break;
     case "summarize_url_content":
       lines = formatSummary(details);

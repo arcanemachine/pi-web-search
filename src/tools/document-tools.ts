@@ -3,7 +3,7 @@ import type { PiWebSearchConfig } from "../config.js";
 import { CursorService } from "../documents/cursor.js";
 import { DocumentService } from "../documents/service.js";
 import type { DocumentToolRuntime } from "./document-shared.js";
-import { registerGrepUrlContentTool } from "./grep-url-content.js";
+import { registerFindTextInUrlContentTool } from "./find-text-in-url-content.js";
 import { registerReadUrlContentTool } from "./read-url-content.js";
 import { registerSummarizeUrlContentTool } from "./summarize-url-content.js";
 
@@ -74,7 +74,7 @@ export function createDocumentToolsController(
     register() {
       getRuntime();
       registerReadUrlContentTool(pi, getRuntime);
-      registerGrepUrlContentTool(pi, getRuntime);
+      registerFindTextInUrlContentTool(pi, getRuntime);
       registerSummarizeUrlContentTool(pi, getRuntime);
     },
     synchronizeActivation() {

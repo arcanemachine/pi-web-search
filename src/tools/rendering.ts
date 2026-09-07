@@ -198,7 +198,7 @@ function collapsedResult(
         preview || bounded(details.summary, 220),
       ].join("\n");
     }
-    case "grep_url_content": {
+    case "find_text_in_url_content": {
       const matches = Array.isArray(data?.matches) ? data.matches : [];
       const total =
         typeof data?.totalMatches === "number"

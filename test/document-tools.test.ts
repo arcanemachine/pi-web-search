@@ -49,7 +49,7 @@ function toolsFor(
   now: () => number = Date.now,
   initialActiveTools = [
     "read_url_content",
-    "grep_url_content",
+    "find_text_in_url_content",
     "search_web",
     "bash",
     "custom_extension_tool",
@@ -113,7 +113,7 @@ describe("shared document tools", () => {
       Date.now,
       [
         "read_url_content",
-        "grep_url_content",
+        "find_text_in_url_content",
         "search_web",
         "bash",
         "custom_extension_tool",
@@ -125,7 +125,7 @@ describe("shared document tools", () => {
     assert.equal(initiallyEnabled.setActiveCalls.length, 1);
     assert.deepEqual(initiallyEnabled.activeTools(), [
       "read_url_content",
-      "grep_url_content",
+      "find_text_in_url_content",
       "search_web",
       "bash",
       "custom_extension_tool",
@@ -140,7 +140,7 @@ describe("shared document tools", () => {
     );
     assert.deepEqual(disabled.activeTools(), [
       "read_url_content",
-      "grep_url_content",
+      "find_text_in_url_content",
       "search_web",
       "bash",
       "custom_extension_tool",
@@ -156,7 +156,7 @@ describe("shared document tools", () => {
     );
     assert.deepEqual(reenabled.activeTools(), [
       "read_url_content",
-      "grep_url_content",
+      "find_text_in_url_content",
       "search_web",
       "bash",
       "custom_extension_tool",
@@ -173,7 +173,7 @@ describe("shared document tools", () => {
     let now = 10_000;
     const tools = toolsFor(packageConfig(), fixture, () => now);
     const read = tools.get("read_url_content");
-    const grep = tools.get("grep_url_content");
+    const grep = tools.get("find_text_in_url_content");
     assert.ok(read);
     assert.ok(grep);
     assert.equal(typeof read.renderCall, "function");
@@ -220,7 +220,7 @@ describe("shared document tools", () => {
   it("shares normalized snapshots and returns reproducible coalesced grep windows", async () => {
     const tools = toolsFor(packageConfig(), fixture);
     const read = tools.get("read_url_content");
-    const grep = tools.get("grep_url_content");
+    const grep = tools.get("find_text_in_url_content");
     assert.ok(read);
     assert.ok(grep);
     const beforeRequests = fixture.requests("/technical");
@@ -296,7 +296,7 @@ describe("shared document tools", () => {
 
   it("returns explicit no-match and match offset pagination", async () => {
     const tools = toolsFor(packageConfig(), fixture);
-    const grep = tools.get("grep_url_content");
+    const grep = tools.get("find_text_in_url_content");
     assert.ok(grep);
 
     const noMatch = await execute(grep, {
@@ -489,7 +489,7 @@ describe("shared document tools", () => {
   it("bounds huge single lines and forwards cancellation", async () => {
     const tools = toolsFor(packageConfig(), fixture);
     const read = tools.get("read_url_content");
-    const grep = tools.get("grep_url_content");
+    const grep = tools.get("find_text_in_url_content");
     assert.ok(read);
     assert.ok(grep);
 

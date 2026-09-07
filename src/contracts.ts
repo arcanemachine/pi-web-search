@@ -17,7 +17,7 @@ export type OperationalErrorCode = (typeof OPERATIONAL_ERROR_CODES)[number];
 export type ToolOperation =
   | "search_web"
   | "read_url_content"
-  | "grep_url_content"
+  | "find_text_in_url_content"
   | "summarize_url_content";
 export type OutcomeStatus = "ok" | "no_results" | "no_match" | "error";
 export type SearchBackendName = "duckduckgo" | "searxng" | "brave";
@@ -101,7 +101,7 @@ export interface ReadOutcomeData {
   nextCursor?: string;
 }
 
-export interface GrepMatch {
+export interface FindTextMatch {
   line: number;
   endLine: number;
   startOffset: number;
@@ -113,9 +113,9 @@ export interface GrepMatch {
   heading?: string;
 }
 
-export interface GrepOutcomeData {
+export interface FindTextOutcomeData {
   query: string;
-  matches: GrepMatch[];
+  matches: FindTextMatch[];
   totalMatches: number;
   offset: number;
   nextOffset?: number;
@@ -174,7 +174,7 @@ export interface ReadUrlContentRequest {
   forceRefresh?: boolean;
 }
 
-export interface GrepUrlContentRequest {
+export interface FindTextInUrlContentRequest {
   url: string;
   query: string;
   beforeLines?: number;

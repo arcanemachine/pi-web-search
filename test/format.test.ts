@@ -26,7 +26,7 @@ const expectedOutcomes: OutcomeEnvelope[] = [
     data: { results: [] },
   },
   {
-    operation: "grep_url_content",
+    operation: "find_text_in_url_content",
     status: "no_match",
     summary: "No matching text found",
     data: { matches: [] },
@@ -69,7 +69,7 @@ describe("outcome formatter", () => {
     assert.doesNotMatch(search.content[0].text, /\"results\"/);
 
     const grep = formatOutcome({
-      operation: "grep_url_content",
+      operation: "find_text_in_url_content",
       status: "ok",
       summary: "Found a match",
       data: {
@@ -93,7 +93,7 @@ describe("outcome formatter", () => {
     assert.match(grep.content[0].text, /> target value/);
 
     const pagedGrep = formatOutcome({
-      operation: "grep_url_content",
+      operation: "find_text_in_url_content",
       status: "ok",
       summary: "Found more matches",
       data: {
@@ -162,7 +162,7 @@ describe("outcome formatter", () => {
       matchCount: 1,
     }));
     const formatted = formatDocumentOutcome({
-      operation: "grep_url_content",
+      operation: "find_text_in_url_content",
       status: "ok",
       summary: "Found all matches",
       data: {

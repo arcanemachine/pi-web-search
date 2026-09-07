@@ -130,7 +130,7 @@ export const SummarizeUrlContentParams = Type.Object(
   { additionalProperties: false },
 );
 
-export const GrepUrlContentParams = Type.Object(
+export const FindTextInUrlContentParams = Type.Object(
   {
     url: Type.String({
       minLength: 1,
@@ -187,7 +187,9 @@ export const GrepUrlContentParams = Type.Object(
 
 export type SearchWebParams = Static<typeof SearchWebParams>;
 export type ReadUrlContentParams = Static<typeof ReadUrlContentParams>;
-export type GrepUrlContentParams = Static<typeof GrepUrlContentParams>;
+export type FindTextInUrlContentParams = Static<
+  typeof FindTextInUrlContentParams
+>;
 export type SummarizeUrlContentParams = Static<
   typeof SummarizeUrlContentParams
 >;
@@ -289,12 +291,16 @@ export function validateSummarizeUrlContentRequest(
   return undefined;
 }
 
-export function validateGrepUrlContentRequest(
+export function validateFindTextInUrlContentRequest(
   value: unknown,
 ): OperationalError | undefined {
-  const error = schemaError("grep_url_content", GrepUrlContentParams, value);
+  const error = schemaError(
+    "find_text_in_url_content",
+    FindTextInUrlContentParams,
+    value,
+  );
   if (error) return error;
-  const request = value as GrepUrlContentParams;
+  const request = value as FindTextInUrlContentParams;
   const urlError = validateHttpUrl(request.url);
   if (urlError) return urlError;
   const query = request.query.trim();
