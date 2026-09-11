@@ -1,6 +1,6 @@
 {
   "name": "@arcanemachine/pi-web-search",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Bounded web search and static document tools for Pi",
   "author": "Nicholas Moen",
   "license": "MIT",
