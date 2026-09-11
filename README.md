@@ -6,7 +6,7 @@
 
 A [Pi](https://pi.dev) extension for bounded web search and static document tools.
 
-No package-specific configuration is required. Web search uses native DuckDuckGo by default. SearXNG and Brave are opt-in backends; configure SearXNG after DuckDuckGo when you want fallback. The extension can read static web pages, search their extracted text, and summarize them with Pi's active model by default.
+No package-specific configuration is required. Web search uses native DuckDuckGo by default. If you supply a Brave API key and do not configure a backend order, Brave is automatically added as a fallback after DuckDuckGo. SearXNG remains opt-in. The extension can read static web pages, search their extracted text, and summarize them with Pi's active model by default.
 
 > Like this extension? See [my other Pi extensions](https://github.com/arcanemachine/pi-projects).
 
@@ -78,15 +78,26 @@ Use `-l` when removing a project-local installation. Start or restart Pi after i
 | HTML normalization          | `jsdom`, Mozilla Readability, and `node-html-markdown`, installed automatically as JavaScript package dependencies by Pi.            |
 | `summarize_url_content`     | Optional model access through the active Pi model or configured `summarizerModel`; enabled by default; disableable by configuration. |
 
-You need at least one usable search backend to call `search_web`, but you do not need all of them. The document read and text-finding tools work without any search backend. The default backend is `duckduckgo`; SearXNG and Brave are opt-in. No separate command, Python runtime, executable download, or postinstall step is required for DuckDuckGo search.
+Without an explicit `backends` setting, DuckDuckGo is always tried first. When `braveApiKey` or `BRAVE_SEARCH_API_KEY` supplies a Brave key, Brave is automatically added as the second backend. This provides DuckDuckGo → Brave fallback without using Brave quota when DuckDuckGo succeeds. SearXNG remains opt-in. The document read and text-finding tools do not require a search backend.
 
 ## Choose a search backend
+
+### Default: DuckDuckGo with optional Brave fallback
+
+When `backends` is omitted, the extension selects the backend order from the available configuration:
+
+- Without a Brave key: `["duckduckgo"]`
+- With `braveApiKey` or `BRAVE_SEARCH_API_KEY`: `["duckduckgo", "brave"]`
+
+Brave runs only when DuckDuckGo returns an operational error, such as HTTP 429, blocking evidence, a timeout, or a fetch failure. A normal DuckDuckGo response with no results does not trigger fallback.
+
+Brave requests can consume quota or incur cost. Supplying a Brave key intentionally opts the implicit default flow into Brave fallback. To keep a key available while preventing automatic Brave calls, set an explicit DuckDuckGo-only backend list.
 
 ### DuckDuckGo only
 
 DuckDuckGo is the default, service-free search setup. The package sends a standards-compliant form POST directly to `https://html.duckduckgo.com/html`, parses ordered HTML results, and returns bounded title, URL, and snippet fields. Region, safe-search, and recency options are mapped to the endpoint request. DuckDuckGo may transiently block or rate-limit automated requests; those responses are classified as retryable operational outcomes.
 
-Configure DuckDuckGo only:
+To force DuckDuckGo-only search—even when a Brave key is available—configure:
 
 ```json
 {
@@ -96,7 +107,7 @@ Configure DuckDuckGo only:
 }
 ```
 
-This prevents SearXNG fallback attempts.
+This explicit list disables all fallback backends.
 
 ### SearXNG only
 
@@ -136,16 +147,15 @@ If your instance uses another URL, substitute it in the check. Configure SearXNG
 
 This keeps the configured backend limited to SearXNG.
 
-### Brave only
+### Add Brave fallback
 
-Brave is an explicit opt-in backend. It requires a Brave Search API subscription key and sends queries over HTTPS to the fixed official endpoint. See the official [Web Search API documentation](https://api-dashboard.search.brave.com/api-reference/web/search/get), [API key management](https://api-dashboard.search.brave.com/documentation/guides/authentication), [rate-limit guidance](https://api-dashboard.search.brave.com/documentation/guides/rate-limiting), and [current pricing](https://brave.com/search/api/). Successful calls may consume quota or incur cost; verify the current pricing and account terms before use.
+Brave requires a Brave Search API subscription key and sends queries over HTTPS to the fixed official endpoint. See the official [Web Search API documentation](https://api-dashboard.search.brave.com/api-reference/web/search/get), [API key management](https://api-dashboard.search.brave.com/documentation/guides/authentication), [rate-limit guidance](https://api-dashboard.search.brave.com/documentation/guides/rate-limiting), and [current pricing](https://brave.com/search/api/). Successful calls may consume quota or incur cost; verify the current pricing and account terms before use.
 
 Configure the key in global `~/.pi/agent/settings.json` or project `.pi/settings.json`:
 
 ```json
 {
   "pi-web-search": {
-    "backends": ["brave"],
     "braveApiKey": "your-subscription-token"
   }
 }
@@ -159,7 +169,11 @@ export BRAVE_SEARCH_API_KEY='your-subscription-token'
 
 A configured `braveApiKey` takes precedence over `BRAVE_SEARCH_API_KEY`. Reload Pi or restart it after changing settings or the environment.
 
-Configure Brave only:
+With no explicit `backends` setting, either key source enables automatic DuckDuckGo → Brave fallback. No additional backend configuration is required.
+
+#### Brave only
+
+To skip DuckDuckGo and use Brave as the only backend:
 
 ```json
 {
@@ -169,16 +183,19 @@ Configure Brave only:
 }
 ```
 
-A recommended key-holder configuration uses Brave first and SearXNG as an operational fallback:
+#### Brave first
+
+To prioritize Brave while retaining DuckDuckGo as a fallback:
 
 ```json
 {
   "pi-web-search": {
-    "backends": ["brave", "searxng"],
-    "searxngUrl": "http://127.0.0.1:8080"
+    "backends": ["brave", "duckduckgo"]
   }
 }
 ```
+
+Because this list is explicit, Brave is attempted first and DuckDuckGo is used only after a Brave operational error.
 
 ### DuckDuckGo with SearXNG fallback
 
@@ -243,7 +260,7 @@ Searches the configured backend order only.
 }
 ```
 
-The default backend is `duckduckgo`. Additional backends run only when they are explicitly listed in `backends`; the next listed backend is tried only after an evidenced operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `limit` applies to one initial DuckDuckGo HTML page; the backend does not paginate. `forceRefresh` bypasses completed cache entries, not the limiter. The visible result is a numbered Markdown list of titles, URLs, snippets, backend metadata, and warnings; the structured `details` field retains the complete bounded outcome.
+When `backends` is omitted, the effective backend order is `["duckduckgo"]` without a Brave key and `["duckduckgo", "brave"]` with one. An explicit `backends` list replaces this automatic selection. Backends run in order, and the next backend is tried only after an operational error. Legitimate `no_results` and local rate limiting never trigger fallback. `limit` applies to one initial DuckDuckGo HTML page; the backend does not paginate. `forceRefresh` bypasses completed cache entries, not the limiter. The visible result is a numbered Markdown list of titles, URLs, snippets, backend metadata, and warnings; the structured `details` field retains the complete bounded outcome.
 
 ### `read_url_content`
 
@@ -303,7 +320,7 @@ Read cursors are opaque, authenticated, process-local, and bound to the exact ca
 
 ## Configuration
 
-Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or project `.pi/settings.json`. Project properties override matching global properties, while unspecified settings retain their defaults. Configure only the overrides you intend to change. The three minimal backend examples are in [Choose a search backend](#choose-a-search-backend).
+Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or project `.pi/settings.json`. Project properties override matching global properties, while unspecified settings retain their defaults. When `backends` is omitted, the effective order is `["duckduckgo"]` without a Brave key and `["duckduckgo", "brave"]` with one. Any explicit `backends` array overrides this automatic selection. The reference below shows `["duckduckgo"]` as an explicit override. Configure only the overrides you intend to change. The three minimal backend examples are in [Choose a search backend](#choose-a-search-backend).
 
 ### Complete configuration reference
 
@@ -346,6 +363,8 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
   }
 }
 ```
+
+Omit `backends` to use automatic key-aware selection. Set it explicitly to force a particular backend set or order.
 
 The `*MaxResults`, `*MaxChars`, and corresponding `*MaxLimit*` properties configure defaults and hard caps for model-requested values. Text-finding defaults are intentionally high so ordinary queries return every match; pathological results are bounded and expose a `nextOffset` continuation hint. Summarization is enabled by default. Set `summarizationEnabled` to `false` to disable execution and remove only `summarize_url_content` from Pi's active tool set and system prompt after reload; its registered definition remains available. `summarizerModel` is optional and uses `provider/model` syntax. When absent, summarization uses the active Pi model. `summarizerThinkingLevel` is optional and accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, provider defaults apply and the parent thinking level is not inherited. For the supported OpenAI direct-completion APIs (`openai-codex-responses`, `openai-responses`, `azure-openai-responses`, and `openai-completions`), the configured level is passed as `reasoningEffort`; `off` maps to `none` for Codex. Unsupported APIs and non-reasoning models fail before dispatch instead of silently ignoring an explicit level. Invalid, duplicate, non-finite, negative, inconsistent, unknown, or unreasonable settings fail with a configuration error rather than being guessed.
 

@@ -322,4 +322,48 @@ describe("search_web tool", () => {
       "duckduckgo",
     );
   });
+
+  it("falls through from DuckDuckGo HTTP 429 to Brave", async () => {
+    let calls = 0;
+    const config: PiWebSearchConfig = {
+      ...DEFAULT_CONFIG,
+      backends: ["duckduckgo", "brave"],
+      braveApiKey: "FAKE_BRAVE_FALLBACK_TOKEN",
+    };
+    const tool = controller(config, (async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response("", { status: 429 })
+        : jsonResponse({
+            web: {
+              results: [
+                {
+                  title: "Brave fallback",
+                  url: "https://example.com",
+                  description: "Brave result",
+                },
+              ],
+            },
+          });
+    }) as typeof fetch);
+    const result = await execute(tool, { query: "query" });
+    assert.equal(result.details.status, "ok");
+    assert.equal(
+      (result.details.provenance as { backend?: string }).backend,
+      "brave",
+    );
+    assert.deepEqual(
+      (
+        result.details.provenance as {
+          attempts?: Array<{ backend?: string }>;
+        }
+      ).attempts?.map((attempt) => attempt.backend),
+      ["duckduckgo", "brave"],
+    );
+    assert.equal(
+      (result.details.warnings as Array<{ source?: string }>)[0].source,
+      "duckduckgo",
+    );
+    assert.doesNotMatch(JSON.stringify(result), /FAKE_BRAVE_FALLBACK_TOKEN/);
+  });
 });

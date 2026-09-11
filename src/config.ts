@@ -407,6 +407,9 @@ export function resolveConfig(
   if (merged.braveApiKey !== undefined) {
     config.braveApiKey = normalizeBraveApiKey(merged.braveApiKey);
   }
+  if (merged.backends === undefined && config.braveApiKey !== undefined) {
+    config.backends = ["duckduckgo", "brave"];
+  }
   if (merged.summarizationEnabled !== undefined) {
     if (typeof merged.summarizationEnabled !== "boolean") {
       throw new ConfigurationError("summarizationEnabled must be a boolean");

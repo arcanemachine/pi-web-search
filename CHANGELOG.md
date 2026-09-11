@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.0 - 2026-09-11
+
+### Changed
+
+- When no explicit backend order is configured, automatically add Brave after DuckDuckGo when a Brave API key is available; explicit backend lists remain authoritative and SearXNG remains opt-in.
+
 ## 2.0.1 - 2026-09-11
 
 ### Fixed

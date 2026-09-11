@@ -9,6 +9,34 @@ import {
 describe("pi-web-search configuration", () => {
   it("uses only DuckDuckGo by default", () => {
     assert.deepEqual(DEFAULT_CONFIG.backends, ["duckduckgo"]);
+    assert.deepEqual(resolveConfig({}, {}, {}).backends, ["duckduckgo"]);
+  });
+
+  it("automatically adds Brave when a key is available", () => {
+    assert.deepEqual(
+      resolveConfig({}, {}, { BRAVE_SEARCH_API_KEY: "environment-token" })
+        .backends,
+      ["duckduckgo", "brave"],
+    );
+    assert.deepEqual(
+      resolveConfig(
+        { "pi-web-search": { braveApiKey: "settings-token" } },
+        {},
+        {},
+      ).backends,
+      ["duckduckgo", "brave"],
+    );
+  });
+
+  it("keeps an explicit backend list authoritative", () => {
+    assert.deepEqual(
+      resolveConfig(
+        { "pi-web-search": { braveApiKey: "settings-token" } },
+        { "pi-web-search": { backends: ["duckduckgo"] } },
+        {},
+      ).backends,
+      ["duckduckgo"],
+    );
   });
 
   it("defaults summarization on and merges its settings", () => {
