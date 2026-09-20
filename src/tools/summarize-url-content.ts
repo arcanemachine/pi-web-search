@@ -16,7 +16,10 @@ import {
 } from "../contracts.js";
 import { matchSnapshot } from "../documents/match.js";
 import { readSnapshotPage } from "../documents/page.js";
-import type { DocumentSnapshot } from "../documents/types.js";
+import {
+  normalizeDocumentOptions,
+  type DocumentSnapshot,
+} from "../documents/types.js";
 import {
   boundedDocumentWarnings,
   documentProvenance,
@@ -388,7 +391,7 @@ function readDocument(
   const first = snapshot.lines[startLine - 1];
   const last = snapshot.lines[endLine - 1];
   const bounded = truncateChars(
-    snapshot.content.slice(first.startOffset, last.endOffset),
+    snapshot.content.slice(first.startCodeUnit, last.endCodeUnit),
     MAX_NESTED_TOOL_CHARS,
   );
   return {
@@ -413,22 +416,22 @@ function grepDocument(
   }
   const query = typeof value.query === "string" ? value.query.trim() : "";
   if (!query) return { error: "grep_document query must not be blank" };
-  if ([...query].length > config.grepMaxQueryChars) {
+  if ([...query].length > config.findMaxQueryChars) {
     return { error: "grep_document query exceeds the configured maximum" };
   }
   const beforeLines = Math.min(
     typeof value.beforeLines === "number" ? value.beforeLines : 1,
-    config.grepMaxContextLines,
+    config.findMaxContextLines,
   );
   const afterLines = Math.min(
     typeof value.afterLines === "number" ? value.afterLines : 1,
-    config.grepMaxContextLines,
+    config.findMaxContextLines,
   );
   const maxMatches = Math.min(
     typeof value.maxMatches === "number"
       ? value.maxMatches
-      : config.grepMaxMatches,
-    config.grepMaxLimitMatches,
+      : config.findMaxMatches,
+    config.findMaxLimitMatches,
   );
   const page = matchSnapshot(
     snapshot,
@@ -438,7 +441,7 @@ function grepDocument(
     afterLines,
     0,
     maxMatches,
-    Math.min(config.grepMaxChars, MAX_NESTED_TOOL_CHARS),
+    Math.min(config.findMaxQuoteChars, MAX_NESTED_TOOL_CHARS),
   );
   return {
     value: {
@@ -1021,8 +1024,6 @@ export function registerSummarizeUrlContentTool(
         );
       }
       const input = params as SummarizeInput;
-      const parsedUrl = new URL(input.url);
-      parsedUrl.hash = "";
       const selector = input.selector?.trim() || undefined;
       const objective =
         input.objective?.trim() ||
@@ -1048,11 +1049,11 @@ export function registerSummarizeUrlContentTool(
       const scope = createAbortScope(signal, SUMMARIZATION_TIMEOUT_MS);
       try {
         const snapshotResult = await runtime.service.getSnapshot(
-          {
-            url: parsedUrl.toString(),
-            mode: input.mode === "full" ? "full" : "main",
-            ...(selector ? { selector } : {}),
-          },
+          normalizeDocumentOptions(
+            input.url,
+            input.mode === "full" ? "full" : "main",
+            selector,
+          ),
           input.forceRefresh ?? false,
           scope.signal,
         );

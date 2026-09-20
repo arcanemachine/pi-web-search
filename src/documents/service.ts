@@ -5,6 +5,7 @@ import type { Diagnostic, OperationalError } from "../contracts.js";
 import { DocumentCache } from "./cache.js";
 import { fetchDocument, type DocumentFetchDependencies } from "./fetch.js";
 import { normalizeDocument } from "./markdown.js";
+import { normalizeDocumentOptions } from "./types.js";
 import type {
   DocumentLine,
   DocumentOptions,
@@ -28,11 +29,9 @@ function sha256(value: string): string {
 
 function keyFor(options: DocumentOptions): string {
   return sha256(
-    JSON.stringify({
-      url: new URL(options.url).toString(),
-      mode: options.mode,
-      selector: options.selector ?? null,
-    }),
+    JSON.stringify(
+      normalizeDocumentOptions(options.url, options.mode, options.selector),
+    ),
   );
 }
 
@@ -98,8 +97,8 @@ function buildLines(content: string): DocumentLine[] {
     const characterLength = [...text].length;
     lines.push({
       number: index + 1,
-      startOffset: offset,
-      endOffset: offset + text.length,
+      startCodeUnit: offset,
+      endCodeUnit: offset + text.length,
       startCharacter: characterOffset,
       endCharacter: characterOffset + characterLength,
       ...(currentHeading ? { heading: currentHeading } : {}),
@@ -181,28 +180,6 @@ export class DocumentService {
     } finally {
       if (this.inFlight.get(key) === execution) this.inFlight.delete(key);
     }
-  }
-
-  getSnapshotById(snapshotId: string): DocumentSnapshotResult {
-    const cached = this.cache.getBySnapshotId(snapshotId);
-    if (!cached) {
-      return {
-        error: {
-          code: "cursor_expired",
-          message: "The cursor snapshot has expired or been evicted",
-          retryable: false,
-        },
-        cache: { status: "miss" },
-      };
-    }
-    return {
-      snapshot: cached.snapshot,
-      cache: {
-        status: "hit",
-        ageMs: cached.ageMs,
-        storedAt: new Date(cached.storedAt).toISOString(),
-      },
-    };
   }
 
   private async createAndCache(

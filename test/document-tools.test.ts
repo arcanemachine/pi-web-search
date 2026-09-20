@@ -74,7 +74,6 @@ function toolsFor(
   const controller = createDocumentToolsController(pi, () => config, {
     fetch: globalThis.fetch,
     now,
-    cursorSecret: new Uint8Array(32).fill(9),
   });
   for (let index = 0; index < registerTimes; index += 1) {
     controller.register();
@@ -189,9 +188,13 @@ describe("shared document tools", () => {
     assert.equal(first.details.status, "ok");
     const firstData = first.details.data as {
       content: string;
-      nextCursor?: string;
+      offset: number;
+      endOffset: number;
+      nextOffset?: number;
     };
-    assert.ok(firstData.nextCursor);
+    assert.equal(firstData.offset, 0);
+    assert.ok(firstData.nextOffset !== undefined);
+    assert.equal(firstData.nextOffset, firstData.endOffset);
     const firstProvenance = first.details.provenance as {
       contentHash?: string;
       fetchedAt?: string;
@@ -203,7 +206,7 @@ describe("shared document tools", () => {
     const second = await execute(read, {
       url: `${fixture.baseUrl}/changing`,
       maxChars: 40,
-      cursor: firstData.nextCursor,
+      offset: firstData.nextOffset,
     });
     const secondProvenance = second.details.provenance as {
       contentHash?: string;
@@ -294,7 +297,7 @@ describe("shared document tools", () => {
     assert.equal(fixture.requests("/technical") - beforeRequests, 1);
   });
 
-  it("returns explicit no-match and match offset pagination", async () => {
+  it("returns explicit no-match and Unicode character-offset pagination", async () => {
     const tools = toolsFor(packageConfig(), fixture);
     const grep = tools.get("find_text_in_url_content");
     assert.ok(grep);
@@ -327,24 +330,25 @@ describe("shared document tools", () => {
       url: `${fixture.baseUrl}/technical`,
       query: "Target",
       maxMatches: 1,
-      maxChars: 6,
+      maxQuoteChars: 6,
       beforeLines: 0,
       afterLines: 0,
     });
     const firstData = first.details.data as {
       offset: number;
       nextOffset?: number;
-      matches: Array<{ quote: string }>;
+      matches: Array<{ quote: string; startOffset: number }>;
     };
     assert.equal(firstData.offset, 0);
-    assert.equal(firstData.nextOffset, 1);
+    assert.ok(firstData.nextOffset !== undefined);
+    assert.ok(firstData.nextOffset > firstData.matches[0].startOffset);
     assert.equal(firstData.matches[0].quote, "Target");
-    assert.match(first.content[0].text, /\*\*Next offset:\*\* 1/);
+    assert.match(first.content[0].text, /\*\*Next call:\*\*/);
     const second = await execute(grep, {
       url: `${fixture.baseUrl}/technical`,
       query: "Target",
       maxMatches: 1,
-      maxChars: 6,
+      maxQuoteChars: 6,
       beforeLines: 0,
       afterLines: 0,
       offset: firstData.nextOffset,
@@ -357,62 +361,62 @@ describe("shared document tools", () => {
       (second.details.data as { nextOffset?: number }).nextOffset,
       undefined,
     );
-    assert.equal((second.details.data as { offset?: number }).offset, 1);
-  });
-
-  it("expires evicted snapshot cursors instead of silently refetching", async () => {
-    let now = 1_000;
-    const tools = toolsFor(
-      packageConfig({ documentCacheTtlSeconds: 1 }),
-      fixture,
-      () => now,
-    );
-    const read = tools.get("read_url_content");
-    assert.ok(read);
-    const first = await execute(read, {
-      url: `${fixture.baseUrl}/changing`,
-      maxChars: 20,
-    });
-    const cursor = (first.details.data as { nextCursor?: string }).nextCursor;
-    assert.ok(cursor);
-
-    now += 1_000;
-    const expired = await execute(read, {
-      url: `${fixture.baseUrl}/changing`,
-      maxChars: 20,
-      cursor,
-    });
-    assert.equal(expired.details.status, "error");
     assert.equal(
-      (expired.details.error as { code?: string }).code,
-      "cursor_expired",
+      (second.details.data as { offset?: number }).offset,
+      firstData.nextOffset,
     );
   });
 
-  it("expires cursors when their snapshot is evicted", async () => {
-    const tools = toolsFor(
-      packageConfig({ documentCacheMaxEntries: 1 }),
-      fixture,
-    );
+  it("shares full-mode selection and treats overfetching as an empty end page", async () => {
+    const tools = toolsFor(packageConfig(), fixture);
     const read = tools.get("read_url_content");
+    const grep = tools.get("find_text_in_url_content");
     assert.ok(read);
-    const first = await execute(read, {
-      url: `${fixture.baseUrl}/changing`,
-      maxChars: 20,
-    });
-    const cursor = (first.details.data as { nextCursor?: string }).nextCursor;
-    assert.ok(cursor);
-    await execute(read, { url: `${fixture.baseUrl}/technical` });
+    assert.ok(grep);
 
-    const expired = await execute(read, {
-      url: `${fixture.baseUrl}/changing`,
-      maxChars: 20,
-      cursor,
+    const fullRead = await execute(read, {
+      url: `${fixture.baseUrl}/technical`,
+      mode: "full",
+      maxChars: 10_000,
     });
-    assert.equal(
-      (expired.details.error as { code?: string }).code,
-      "cursor_expired",
+    assert.match(
+      (fullRead.details.data as { content: string }).content,
+      /API Guide/,
     );
+    const fullFind = await execute(grep, {
+      url: `${fixture.baseUrl}/technical`,
+      mode: "full",
+      query: "Target",
+    });
+    assert.equal(fullFind.details.status, "ok");
+    assert.equal(
+      (fullFind.details.provenance as { contentHash?: string }).contentHash,
+      (fullRead.details.provenance as { contentHash?: string }).contentHash,
+    );
+
+    const complete = await execute(read, {
+      url: `${fixture.baseUrl}/article`,
+      maxChars: 100,
+    });
+    const completeData = complete.details.data as {
+      totalChars: number;
+    };
+    const overfetched = await execute(read, {
+      url: `${fixture.baseUrl}/article`,
+      offset: completeData.totalChars + 100,
+    });
+    const overData = overfetched.details.data as {
+      content: string;
+      offset: number;
+      endOffset: number;
+      totalChars: number;
+    };
+    assert.equal(overfetched.details.status, "ok");
+    assert.equal(overData.content, "");
+    assert.equal(overData.offset, completeData.totalChars);
+    assert.equal(overData.endOffset, completeData.totalChars);
+    assert.equal(overData.totalChars, completeData.totalChars);
+    assert.match(overfetched.content[0].text, /offset_clamped/);
   });
 
   it("renders readable Markdown while preserving bounded structured details", async () => {
@@ -434,7 +438,10 @@ describe("shared document tools", () => {
         `**Source:** ${fixture.baseUrl}/markdown`,
       ),
     );
-    assert.match(markdown.content[0].text, /Range:.*characters 0-18 of 18/);
+    assert.match(
+      markdown.content[0].text,
+      /Range:.*character offsets \[0, 18\) of 18/,
+    );
 
     const json = await execute(read, { url: `${fixture.baseUrl}/json` });
     assert.match(json.content[0].text, /```json\n\{\n  "name": "fixture"/);
@@ -456,25 +463,20 @@ describe("shared document tools", () => {
       url: `${fixture.baseUrl}/changing`,
       maxChars: 10,
     });
-    const nextCursor = (first.details.data as { nextCursor?: string })
-      .nextCursor;
-    assert.ok(nextCursor);
-    assert.match(first.content[0].text, /\*\*Next cursor:\*\*/);
+    const firstData = first.details.data as { nextOffset?: number };
+    assert.ok(firstData.nextOffset !== undefined);
+    assert.match(first.content[0].text, /\*\*Next call:\*\*/);
     const continued = await execute(read, {
       url: `${fixture.baseUrl}/changing`,
       maxChars: 10,
-      cursor: nextCursor,
+      offset: firstData.nextOffset,
     });
-    assert.match(continued.content[0].text, /\*\*Next cursor:\*\*/);
-    assert.equal(
-      (continued.details.data as { cursor?: string }).cursor,
-      nextCursor,
-    );
+    assert.match(continued.content[0].text, /\*\*Next call:\*\*/);
     const complete = await execute(read, {
       url: `${fixture.baseUrl}/article`,
       maxChars: 100,
     });
-    assert.doesNotMatch(complete.content[0].text, /\*\*Next cursor:\*\*/);
+    assert.doesNotMatch(complete.content[0].text, /\*\*Next call:\*\*/);
 
     const error = await execute(read, { url: "ftp://example.test/file" });
     assert.match(error.content[0].text, /^\*\*read_url_content failed:\*\*/);
@@ -519,7 +521,7 @@ describe("shared document tools", () => {
       url: `${fixture.baseUrl}/huge`,
       query: "界",
       maxMatches: 100,
-      maxChars: 50,
+      maxQuoteChars: 50,
       beforeLines: 20,
       afterLines: 20,
     });

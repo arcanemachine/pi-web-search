@@ -7,6 +7,7 @@ import {
   type OutcomeEnvelope,
 } from "../contracts.js";
 import { matchSnapshot } from "../documents/match.js";
+import { normalizeDocumentOptions } from "../documents/types.js";
 import {
   FindTextInUrlContentParams,
   type FindTextInUrlContentParams as FindTextInput,
@@ -30,13 +31,14 @@ export function registerFindTextInUrlContentTool(
   pi.registerTool({
     name: "find_text_in_url_content",
     label: "Find Text in URL Content",
-    description: `Find literal text in a normalized document snapshot. Results include all matches by default; pathological results are bounded to ${effective.grepMaxMatches} matches and ${effective.grepMaxChars} quote characters and expose a continuation offset.`,
+    description: `Find literal text in a normalized document snapshot. Results include all matches by default; pathological results are bounded to ${effective.findMaxMatches} matches and ${effective.findMaxQuoteChars} quote characters and expose a continuation offset.`,
     promptSnippet: "Find text in a static URL snapshot.",
     promptGuidelines: [
       "Use find_text_in_url_content to find literal text in a web page at a known URL, usually after search_web identifies the page.",
       "Do not use find_text_in_url_content to search local files or directories.",
       "For understanding or explaining one known static page, prefer summarize_url_content when it is available instead of collecting broad raw text.",
-      "Results include all matches by default with no surrounding context lines. Set beforeLines and afterLines to positive values when surrounding context is useful. If a result includes nextOffset, call find_text_in_url_content again with the same arguments and set offset to nextOffset.",
+      "Results include all matches by default with no surrounding context lines. Set beforeLines and afterLines to positive values when surrounding context is useful. If a result includes nextOffset, call find_text_in_url_content again with the same URL, mode, selector, and query and set offset to nextOffset.",
+      "Offsets count normalized Unicode characters; an offset at or past the document end returns no matches.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
       "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
     ],
@@ -64,49 +66,51 @@ export function registerFindTextInUrlContentTool(
         );
       }
       const input = params as FindTextInput;
-      const parsedUrl = new URL(input.url);
-      parsedUrl.hash = "";
-      const url = parsedUrl.toString();
       const query = input.query.trim();
-      if ([...query].length > runtime.config.grepMaxQueryChars) {
+      if ([...query].length > runtime.config.findMaxQueryChars) {
         return formatDocumentOutcome(
           errorOutcome("find_text_in_url_content", {
             code: "invalid_request",
-            message: `query exceeds the configured maximum of ${runtime.config.grepMaxQueryChars} characters`,
+            message: `query exceeds the configured maximum of ${runtime.config.findMaxQueryChars} characters`,
             retryable: false,
           }),
         );
       }
-      const selector = input.selector?.trim() || undefined;
+      const options = normalizeDocumentOptions(
+        input.url,
+        input.mode === "full" ? "full" : "main",
+        input.selector,
+      );
       const requestedBefore = input.beforeLines ?? 0;
       const requestedAfter = input.afterLines ?? 0;
       const requestedMatches =
-        input.maxMatches ?? runtime.config.grepMaxMatches;
-      const startOrdinal = input.offset ?? 0;
-      const requestedChars = input.maxChars ?? runtime.config.grepMaxChars;
+        input.maxMatches ?? runtime.config.findMaxMatches;
+      const requestedQuoteChars =
+        input.maxQuoteChars ?? runtime.config.findMaxQuoteChars;
+      const requestedOffset = input.offset ?? 0;
       const beforeLines = Math.min(
         requestedBefore,
-        runtime.config.grepMaxContextLines,
+        runtime.config.findMaxContextLines,
       );
       const afterLines = Math.min(
         requestedAfter,
-        runtime.config.grepMaxContextLines,
+        runtime.config.findMaxContextLines,
       );
       const maxMatches = Math.min(
         requestedMatches,
-        runtime.config.grepMaxLimitMatches,
+        runtime.config.findMaxLimitMatches,
       );
-      const maxChars = Math.min(
-        requestedChars,
-        runtime.config.grepMaxLimitChars,
+      const maxQuoteChars = Math.min(
+        requestedQuoteChars,
+        runtime.config.findMaxLimitQuoteChars,
       );
       const caseSensitive = input.caseSensitive ?? false;
-      if (maxChars < [...query].length) {
+      if (maxQuoteChars < [...query].length) {
         return formatDocumentOutcome(
           errorOutcome("find_text_in_url_content", {
             code: "invalid_request",
             message:
-              "maxChars must be large enough to contain the literal query",
+              "maxQuoteChars must be large enough to contain the literal query",
             retryable: false,
           }),
         );
@@ -116,12 +120,12 @@ export function registerFindTextInUrlContentTool(
         clampWarning("beforeLines", requestedBefore, beforeLines),
         clampWarning("afterLines", requestedAfter, afterLines),
         clampWarning("maxMatches", requestedMatches, maxMatches),
-        clampWarning("maxChars", requestedChars, maxChars),
+        clampWarning("maxQuoteChars", requestedQuoteChars, maxQuoteChars),
       ]) {
         if (warning) warnings.push(warning);
       }
       const snapshotResult = await runtime.service.getSnapshot(
-        { url, mode: "main", ...(selector ? { selector } : {}) },
+        options,
         input.forceRefresh ?? false,
         signal,
       );
@@ -136,8 +140,16 @@ export function registerFindTextInUrlContentTool(
           "Document snapshot result is missing a snapshot",
         );
       }
+      const startOffset = Math.min(requestedOffset, snapshot.characterCount);
+      if (startOffset !== requestedOffset) {
+        warnings.push({
+          code: "offset_clamped",
+          message: `offset=${requestedOffset} was clamped to ${startOffset}`,
+          source: "local",
+        });
+      }
 
-      let pageChars = maxChars;
+      let pageChars = maxQuoteChars;
       let pageMatches = maxMatches;
       while (pageChars >= 1 && pageMatches >= 1) {
         const page = matchSnapshot(
@@ -146,16 +158,22 @@ export function registerFindTextInUrlContentTool(
           caseSensitive,
           beforeLines,
           afterLines,
-          startOrdinal,
+          startOffset,
           pageMatches,
           pageChars,
         );
-        if (page.totalMatches === 0 && startOrdinal === 0) {
+        if (page.totalMatches === 0) {
           return formatDocumentOutcome({
             operation: "find_text_in_url_content",
             status: "no_match",
             summary: "No literal matches found in the normalized snapshot",
-            data: { query, matches: [], totalMatches: 0, offset: startOrdinal },
+            data: {
+              query,
+              matches: [],
+              totalMatches: 0,
+              offset: startOffset,
+              totalChars: snapshot.characterCount,
+            },
             warnings: boundedDocumentWarnings([
               ...warnings,
               ...snapshot.warnings,
@@ -169,19 +187,10 @@ export function registerFindTextInUrlContentTool(
             },
           });
         }
-        if (startOrdinal >= page.totalMatches || page.consumedMatches === 0) {
-          return formatDocumentOutcome(
-            errorOutcome("find_text_in_url_content", {
-              code: "invalid_request",
-              message: "offset exceeds the available match count",
-              retryable: false,
-            }),
-          );
+        if (page.consumedMatches === 0) {
+          throw new InvariantError("Unable to create bounded document matches");
         }
 
-        const nextPosition = startOrdinal + page.consumedMatches;
-        const hasMore = nextPosition < page.totalMatches;
-        const nextOffset = hasMore ? nextPosition : undefined;
         const outcome: OutcomeEnvelope<FindTextOutcomeData> = {
           operation: "find_text_in_url_content",
           status: "ok",
@@ -190,8 +199,11 @@ export function registerFindTextInUrlContentTool(
             query,
             matches: page.matches,
             totalMatches: page.totalMatches,
-            offset: startOrdinal,
-            ...(nextOffset === undefined ? {} : { nextOffset }),
+            offset: startOffset,
+            totalChars: snapshot.characterCount,
+            ...(page.nextOffset === undefined
+              ? {}
+              : { nextOffset: page.nextOffset }),
           },
           warnings: boundedDocumentWarnings([
             ...warnings,
@@ -199,7 +211,7 @@ export function registerFindTextInUrlContentTool(
           ]),
           provenance: documentProvenance(snapshot, snapshotResult.cache),
           bounds: {
-            truncated: snapshot.truncated || hasMore || page.truncated,
+            truncated: snapshot.truncated || page.truncated,
             returnedItems: page.consumedMatches,
             totalItems: page.totalMatches,
             maxBytes: 48 * 1_024,

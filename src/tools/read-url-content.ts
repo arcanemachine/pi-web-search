@@ -7,8 +7,8 @@ import {
   type OutcomeEnvelope,
   type ReadOutcomeData,
 } from "../contracts.js";
-import { optionsHash } from "../documents/cursor.js";
 import { readSnapshotPage } from "../documents/page.js";
+import { normalizeDocumentOptions } from "../documents/types.js";
 import {
   ReadUrlContentParams,
   type ReadUrlContentParams as ReadInput,
@@ -36,7 +36,8 @@ export function registerReadUrlContentTool(
     promptGuidelines: [
       "Use read_url_content when exact source text, quotations, code, commands, precise wording, manual inspection, or deliberate pagination is needed.",
       "For understanding, explaining, synthesizing, or evaluating one known static page, prefer summarize_url_content when it is available instead of reading the page first.",
-      "Use cursors to continue the exact cached snapshot when deliberate pagination is needed.",
+      "Continue a page by repeating the same URL, mode, and selector and setting offset to the returned nextOffset; maxChars may change between calls.",
+      "Offsets count normalized Unicode characters; an offset past the end returns an empty result at the document end.",
       "If static extraction returns a client-rendered shell, use Playwright or another JavaScript-capable browser.",
       "For broad, multi-page, context-heavy, or page-summary research, delegate to a suitable research subagent when available.",
     ],
@@ -59,11 +60,8 @@ export function registerReadUrlContentTool(
         );
       }
       const input = params as ReadInput;
-      const parsedUrl = new URL(input.url);
-      parsedUrl.hash = "";
-      const url = parsedUrl.toString();
       const mode = input.mode === "full" ? "full" : "main";
-      const selector = input.selector?.trim() || undefined;
+      const options = normalizeDocumentOptions(input.url, mode, input.selector);
       const requestedMaxChars = input.maxChars ?? runtime.config.readMaxChars;
       const maxChars = Math.min(
         requestedMaxChars,
@@ -72,33 +70,12 @@ export function registerReadUrlContentTool(
       const warnings: Diagnostic[] = [];
       const maxWarning = clampWarning("maxChars", requestedMaxChars, maxChars);
       if (maxWarning) warnings.push(maxWarning);
-      const hash = optionsHash({
-        url,
-        mode,
-        selector: selector ?? null,
-        maxChars,
-      });
 
-      let start = 0;
-      let snapshotResult;
-      if (input.cursor) {
-        const decoded = runtime.cursors.decode(input.cursor, "read", hash);
-        if (decoded.error) {
-          return formatReadDocumentOutcome(
-            errorOutcome("read_url_content", decoded.error),
-          );
-        }
-        start = decoded.value.position;
-        snapshotResult = runtime.service.getSnapshotById(
-          decoded.value.snapshotId,
-        );
-      } else {
-        snapshotResult = await runtime.service.getSnapshot(
-          { url, mode, ...(selector ? { selector } : {}) },
-          input.forceRefresh ?? false,
-          signal,
-        );
-      }
+      const snapshotResult = await runtime.service.getSnapshot(
+        options,
+        input.forceRefresh ?? false,
+        signal,
+      );
       if (snapshotResult.error) {
         return formatReadDocumentOutcome(
           errorOutcome("read_url_content", snapshotResult.error),
@@ -110,23 +87,22 @@ export function registerReadUrlContentTool(
           "Document snapshot result is missing a snapshot",
         );
       }
-      if (start >= snapshot.characterCount && snapshot.characterCount > 0) {
-        throw new InvariantError("Read cursor position exceeds its snapshot");
+
+      const requestedOffset = input.offset ?? 0;
+      const start = Math.min(requestedOffset, snapshot.characterCount);
+      if (start !== requestedOffset) {
+        warnings.push({
+          code: "offset_clamped",
+          message: `offset=${requestedOffset} was clamped to ${start}`,
+          source: "local",
+        });
       }
 
       let pageBudget = maxChars;
       while (pageBudget >= 1) {
         const page = readSnapshotPage(snapshot, start, pageBudget);
         const hasMore = page.end < page.total;
-        const nextCursor =
-          hasMore && snapshotResult.cache.storedAt
-            ? runtime.cursors.encode({
-                snapshotId: snapshot.id,
-                operation: "read",
-                position: page.end,
-                optionsHash: hash,
-              })
-            : undefined;
+        const nextOffset = hasMore ? page.end : undefined;
         const outcome: OutcomeEnvelope<ReadOutcomeData> = {
           operation: "read_url_content",
           status: "ok",
@@ -136,8 +112,10 @@ export function registerReadUrlContentTool(
             ...(snapshot.title
               ? { title: truncateChars(snapshot.title, 300).value }
               : {}),
-            ...(input.cursor ? { cursor: input.cursor } : {}),
-            ...(nextCursor ? { nextCursor } : {}),
+            offset: page.start,
+            endOffset: page.end,
+            totalChars: page.total,
+            ...(nextOffset === undefined ? {} : { nextOffset }),
           },
           warnings: boundedDocumentWarnings([
             ...warnings,
@@ -159,7 +137,7 @@ export function registerReadUrlContentTool(
           end: page.end,
           total: page.total,
           truncated: snapshot.truncated || hasMore,
-          ...(nextCursor ? { nextCursor } : {}),
+          ...(nextOffset === undefined ? {} : { nextOffset }),
         });
         if (formatted) return formatted;
         if (pageBudget === 1) {

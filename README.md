@@ -264,20 +264,20 @@ When `backends` is omitted, the effective backend order is `["duckduckgo"]` with
 
 ### `read_url_content`
 
-Fetches an HTTP(S) URL, creates a bounded normalized snapshot, and returns one stable page. The model-visible result is human-readable Markdown: normalized HTML/Markdown is shown directly, JSON is shown in a fenced `json` block, and a compact footer shows the final source URL, character range, truncation state, continuation cursor, and concise warnings. The structured `details` field retains the bounded machine-readable outcome, provenance, and exact normalized page content.
+Fetches an HTTP(S) URL, creates a bounded normalized snapshot, and returns one page. Continuation is stateless: repeat the same URL, mode, and selector and pass the returned `nextOffset` as `offset`. Offsets are zero-based Unicode character positions in normalized content. Overfetching is friendly: an offset past the end returns an empty page at the document end, and a large `maxChars` returns the remaining content. The model-visible footer shows the exact half-open character range, truncation state, and next call when more content exists.
 
 ```ts
 {
   url: string;
   mode?: "main" | "full";
   selector?: string;
+  offset?: number;
   maxChars?: number;
-  cursor?: string;
   forceRefresh?: boolean;
 }
 ```
 
-HTML is parsed without executing scripts and converted to Markdown. Plain text, Markdown, XML text, and JSON use native normalization. Read errors are shown as concise Markdown with a stable error code; full bounded error details remain in `details`. Main-mode extraction selects an explicit CSS selector or deterministically prefers `main`, `[role="main"]`, and `article`; sectioned body-only documents preserve their structured body, while weakly structured pages use best-effort Mozilla Readability extraction before falling back to the body. Full mode and selectors remain deterministic. JavaScript-dependent content is not rendered.
+HTML is parsed without executing scripts and converted to Markdown. Plain text, Markdown, XML text, and JSON use native normalization. Read errors are shown as concise Markdown with a stable error code; full bounded error details remain in `details`. Main-mode extraction selects an explicit CSS selector or deterministically prefers `main`, `[role="main"]`, and `article`; sectioned body-only documents preserve their structured body, while weakly structured pages use best-effort Mozilla Readability extraction before falling back to the body. Full mode and selectors remain deterministic. JavaScript-dependent content is not rendered. Refetching after a page changes applies the requested offset to the current normalized document.
 
 ### `summarize_url_content`
 
@@ -297,26 +297,25 @@ Summarization is enabled by default. `summarizerModel` optionally selects a conf
 
 ### `find_text_in_url_content`
 
-Finds literal text in the same normalized snapshots used by `read_url_content`. The visible result is Markdown with match counts, match ranges, line ranges, headings, quoted context, continuation offsets when needed, and warnings; exact offsets and match objects remain in structured `details`.
+Finds literal text in the same normalized snapshots used by `read_url_content`. It uses the same URL, `mode`, `selector`, and Unicode character-offset coordinate system as reading, so a match position can be passed directly to `read_url_content`. Continuation is stateless: repeat the same document-selection arguments and pass `nextOffset` as `offset`.
 
 ```ts
 {
   url: string;
   query: string;
+  mode?: "main" | "full";
+  selector?: string;
+  offset?: number;
   beforeLines?: number;
   afterLines?: number;
   maxMatches?: number;
-  maxChars?: number;
+  maxQuoteChars?: number;
   caseSensitive?: boolean;
-  selector?: string;
-  offset?: number;
   forceRefresh?: boolean;
 }
 ```
 
-Matches include exact bounded quotes, heading breadcrumbs, line numbers, and normalized character offsets. Surrounding context defaults to zero lines before and after each match; set `beforeLines` and `afterLines` when context is useful. Overlapping context windows are coalesced. Results include all matches by default. When the result is too large for the tool-output budget, the response is marked truncated and includes `nextOffset`; call the tool again with the same arguments and set `offset` to `nextOffset`. No matches return explicit `status: "no_match"`.
-
-Read cursors are opaque, authenticated, process-local, and bound to the exact cached snapshot. Expired or evicted read snapshots return `cursor_expired`; read cursors never silently continue against refetched content. Text-finding continuation uses a simple zero-based match offset because snapshot expiry and page changes are acceptable edge cases.
+Matches include exact bounded quotes, heading breadcrumbs, line numbers, and half-open normalized character ranges. Matching is literal and non-overlapping; case-insensitive matching retains JavaScript Unicode behavior. Surrounding context defaults to zero lines before and after each match; set `beforeLines` and `afterLines` when context is useful. Overlapping context windows are coalesced, while match counts continue to count occurrences. When output limits bound the result, `nextOffset` identifies the first match not returned. Call again with the same URL, query, mode, selector, and matching options, changing only `offset` or output limits as needed. An offset at or past the document end returns `status: "no_match"`.
 
 ## Configuration
 
@@ -351,12 +350,12 @@ Configure a `pi-web-search` object in global `~/.pi/agent/settings.json` or proj
     "documentCacheMaxBytes": 10485760,
     "readMaxChars": 12000,
     "readMaxLimitChars": 40000,
-    "grepMaxQueryChars": 500,
-    "grepMaxContextLines": 20,
-    "grepMaxMatches": 1000,
-    "grepMaxLimitMatches": 1000,
-    "grepMaxChars": 40000,
-    "grepMaxLimitChars": 40000,
+    "findMaxQueryChars": 500,
+    "findMaxContextLines": 20,
+    "findMaxMatches": 1000,
+    "findMaxLimitMatches": 1000,
+    "findMaxQuoteChars": 40000,
+    "findMaxLimitQuoteChars": 40000,
     "summarizationEnabled": true,
     "summarizerModel": "provider/model",
     "summarizerThinkingLevel": "low"
@@ -463,7 +462,7 @@ Expected outcomes use structured statuses:
 - `no_match`
 - `error`
 
-Operational errors include stable codes such as `invalid_request`, `backend_unavailable`, `rate_limited`, `timeout`, `blocked`, `fetch_failed`, `backend_failed`, `parse_failed`, and `cursor_expired`, plus retry guidance when known. Unexpected invariant failures remain protocol-level errors.
+Operational errors include stable codes such as `invalid_request`, `backend_unavailable`, `rate_limited`, `timeout`, `blocked`, `fetch_failed`, `backend_failed`, and `parse_failed`, plus retry guidance when known. Unexpected invariant failures remain protocol-level errors.
 
 ## Research workflow
 

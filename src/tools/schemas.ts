@@ -72,17 +72,19 @@ export const ReadUrlContentParams = Type.Object(
         description: "CSS selector for the content root",
       }),
     ),
+    offset: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        maximum: Number.MAX_SAFE_INTEGER,
+        description: "Zero-based normalized Unicode character offset",
+      }),
+    ),
     maxChars: Type.Optional(
       Type.Integer({
         minimum: 1,
-        description: "Maximum normalized characters",
-      }),
-    ),
-    cursor: Type.Optional(
-      Type.String({
-        minLength: 1,
-        maxLength: 2_048,
-        description: "Opaque cursor for the same cached snapshot",
+        maximum: Number.MAX_SAFE_INTEGER,
+        description:
+          "Maximum normalized characters; oversized values are capped",
       }),
     ),
     forceRefresh: Type.Optional(
@@ -142,6 +144,12 @@ export const FindTextInUrlContentParams = Type.Object(
       maxLength: 10_000,
       description: "Literal text to find (maximum 10,000 characters)",
     }),
+    mode: Type.Optional(
+      Type.String({
+        enum: ["main", "full"],
+        description: "Main content (default) or full document",
+      }),
+    ),
     beforeLines: Type.Optional(
       Type.Integer({ minimum: 0, description: "Context lines before matches" }),
     ),
@@ -151,13 +159,15 @@ export const FindTextInUrlContentParams = Type.Object(
     maxMatches: Type.Optional(
       Type.Integer({
         minimum: 1,
-        description: "Maximum match count",
+        maximum: Number.MAX_SAFE_INTEGER,
+        description: "Maximum match count; oversized values are capped",
       }),
     ),
-    maxChars: Type.Optional(
+    maxQuoteChars: Type.Optional(
       Type.Integer({
         minimum: 1,
-        description: "Maximum quote characters",
+        maximum: Number.MAX_SAFE_INTEGER,
+        description: "Maximum quote characters; oversized values are capped",
       }),
     ),
     caseSensitive: Type.Optional(
@@ -173,7 +183,8 @@ export const FindTextInUrlContentParams = Type.Object(
     offset: Type.Optional(
       Type.Integer({
         minimum: 0,
-        description: "Zero-based match offset for continuing a bounded result",
+        maximum: Number.MAX_SAFE_INTEGER,
+        description: "Zero-based normalized Unicode character offset",
       }),
     ),
     forceRefresh: Type.Optional(
@@ -265,9 +276,6 @@ export function validateReadUrlContentRequest(
   if (urlError) return urlError;
   const selectorError = validateSelector(request.selector);
   if (selectorError) return selectorError;
-  if (request.cursor && request.forceRefresh) {
-    return invalid("cursor cannot be combined with forceRefresh");
-  }
   return undefined;
 }
 

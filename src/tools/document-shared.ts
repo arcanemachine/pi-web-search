@@ -6,7 +6,6 @@ import type {
   Provenance,
 } from "../contracts.js";
 import type { PiWebSearchConfig } from "../config.js";
-import type { CursorService } from "../documents/cursor.js";
 import type { DocumentService } from "../documents/service.js";
 import type { DocumentSnapshot } from "../documents/types.js";
 import { formatOutcome, type FormattedOutcome } from "../format.js";
@@ -14,7 +13,6 @@ import { formatOutcome, type FormattedOutcome } from "../format.js";
 export interface DocumentToolRuntime {
   config: PiWebSearchConfig;
   service: DocumentService;
-  cursors: CursorService;
 }
 
 export const DOCUMENT_OUTPUT_BUDGET = 48 * 1_024;
@@ -72,7 +70,7 @@ export interface ReadContentMetadata {
   end: number;
   total: number;
   truncated: boolean;
-  nextCursor?: string;
+  nextOffset?: number;
 }
 
 function inlineMetadata(value: string): string {
@@ -150,11 +148,11 @@ export function formatReadDocumentOutcome(
   const footer = [
     "---",
     `**Source:** ${inlineMetadata(metadata.finalUrl)}`,
-    `**Range:** normalized characters ${metadata.start}-${metadata.end} of ${metadata.total}`,
+    `**Range:** normalized character offsets [${metadata.start}, ${metadata.end}) of ${metadata.total}`,
     `**Truncated:** ${metadata.truncated ? "yes" : "no"}`,
-    ...(metadata.nextCursor
-      ? [`**Next cursor:** \`${inlineMetadata(metadata.nextCursor)}\``]
-      : []),
+    ...(metadata.nextOffset === undefined
+      ? []
+      : [`**Next call:** \`offset=${metadata.nextOffset}\``]),
     ...((outcome.warnings ?? []).length > 0
       ? [
           "**Warnings:**",

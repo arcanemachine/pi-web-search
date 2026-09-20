@@ -173,10 +173,12 @@ function formatFindText(details: JsonObject): string[] {
     if (!isRecord(item)) return count;
     return count + Math.max(1, Math.floor(numberValue(item.matchCount, 1)));
   }, 0);
+  const totalChars = numberValue(data?.totalChars, 0);
   const lines = [
     "# Literal matches",
     `**Query:** \`${inline(query)}\``,
     `**Matches:** ${returned} of ${total}`,
+    `**Offset:** ${offset} of ${totalChars}`,
   ];
   if (returned > 0) {
     lines.push(
@@ -184,7 +186,7 @@ function formatFindText(details: JsonObject): string[] {
     );
   }
   const nextOffset = numberValue(data?.nextOffset, -1);
-  if (nextOffset >= 0) lines.push(`**Next offset:** ${nextOffset}`);
+  if (nextOffset >= 0) lines.push(`**Next call:** \`offset=${nextOffset}\``);
   if (matches.length === 0)
     lines.push("", "No matching document content found.");
   matches.forEach((item, index) => {
@@ -195,7 +197,7 @@ function formatFindText(details: JsonObject): string[] {
     const quote = stringValue(item.quote);
     lines.push(
       "",
-      `### Match ${index + 1} · lines ${line}-${endLine}`,
+      `### Match ${index + 1} · characters [${numberValue(item.startOffset, 0)}, ${numberValue(item.endOffset, 0)}) · lines ${line}-${endLine}`,
       ...(heading ? [`**Heading:** ${inline(heading)}`] : []),
       ...quote.split("\n").map((part) => `> ${part}`),
     );

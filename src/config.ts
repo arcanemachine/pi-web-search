@@ -45,12 +45,12 @@ export interface PiWebSearchConfig {
   documentCacheMaxBytes: number;
   readMaxChars: number;
   readMaxLimitChars: number;
-  grepMaxQueryChars: number;
-  grepMaxContextLines: number;
-  grepMaxMatches: number;
-  grepMaxLimitMatches: number;
-  grepMaxChars: number;
-  grepMaxLimitChars: number;
+  findMaxQueryChars: number;
+  findMaxContextLines: number;
+  findMaxMatches: number;
+  findMaxLimitMatches: number;
+  findMaxQuoteChars: number;
+  findMaxLimitQuoteChars: number;
   summarizationEnabled: boolean;
   summarizerModel?: string;
   summarizerThinkingLevel?: SummarizerThinkingLevel;
@@ -80,12 +80,12 @@ export const DEFAULT_CONFIG: Readonly<PiWebSearchConfig> = Object.freeze({
   documentCacheMaxBytes: 10_485_760,
   readMaxChars: 12_000,
   readMaxLimitChars: 40_000,
-  grepMaxQueryChars: 500,
-  grepMaxContextLines: 20,
-  grepMaxMatches: 1_000,
-  grepMaxLimitMatches: 1_000,
-  grepMaxChars: 40_000,
-  grepMaxLimitChars: 40_000,
+  findMaxQueryChars: 500,
+  findMaxContextLines: 20,
+  findMaxMatches: 1_000,
+  findMaxLimitMatches: 1_000,
+  findMaxQuoteChars: 40_000,
+  findMaxLimitQuoteChars: 40_000,
   summarizationEnabled: true,
 });
 
@@ -111,12 +111,12 @@ const NUMERIC_KEYS = [
   "documentCacheMaxBytes",
   "readMaxChars",
   "readMaxLimitChars",
-  "grepMaxQueryChars",
-  "grepMaxContextLines",
-  "grepMaxMatches",
-  "grepMaxLimitMatches",
-  "grepMaxChars",
-  "grepMaxLimitChars",
+  "findMaxQueryChars",
+  "findMaxContextLines",
+  "findMaxMatches",
+  "findMaxLimitMatches",
+  "findMaxQuoteChars",
+  "findMaxLimitQuoteChars",
 ] as const;
 
 type NumericKey = (typeof NUMERIC_KEYS)[number];
@@ -143,12 +143,12 @@ const MAXIMUMS: Record<NumericKey, number> = {
   documentCacheMaxBytes: 1_073_741_824,
   readMaxChars: 40_000,
   readMaxLimitChars: 40_000,
-  grepMaxQueryChars: 10_000,
-  grepMaxContextLines: 1_000,
-  grepMaxMatches: 1_000,
-  grepMaxLimitMatches: 1_000,
-  grepMaxChars: 40_000,
-  grepMaxLimitChars: 40_000,
+  findMaxQueryChars: 10_000,
+  findMaxContextLines: 1_000,
+  findMaxMatches: 1_000,
+  findMaxLimitMatches: 1_000,
+  findMaxQuoteChars: 40_000,
+  findMaxLimitQuoteChars: 40_000,
 };
 
 const KNOWN_KEYS = new Set<string>([
@@ -352,14 +352,14 @@ function validateRelationships(config: PiWebSearchConfig): void {
       "readMaxChars must not exceed readMaxLimitChars",
     );
   }
-  if (config.grepMaxMatches > config.grepMaxLimitMatches) {
+  if (config.findMaxMatches > config.findMaxLimitMatches) {
     throw new ConfigurationError(
-      "grepMaxMatches must not exceed grepMaxLimitMatches",
+      "findMaxMatches must not exceed findMaxLimitMatches",
     );
   }
-  if (config.grepMaxChars > config.grepMaxLimitChars) {
+  if (config.findMaxQuoteChars > config.findMaxLimitQuoteChars) {
     throw new ConfigurationError(
-      "grepMaxChars must not exceed grepMaxLimitChars",
+      "findMaxQuoteChars must not exceed findMaxLimitQuoteChars",
     );
   }
   if (config.documentMaxNormalizedBytes > config.documentCacheMaxBytes) {

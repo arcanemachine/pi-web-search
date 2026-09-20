@@ -9,7 +9,6 @@ export const OPERATIONAL_ERROR_CODES = [
   "fetch_failed",
   "backend_failed",
   "parse_failed",
-  "cursor_expired",
   "generation_failed",
 ] as const;
 
@@ -97,8 +96,10 @@ export interface SearchOutcomeData {
 export interface ReadOutcomeData {
   content: string;
   title?: string;
-  cursor?: string;
-  nextCursor?: string;
+  offset: number;
+  endOffset: number;
+  totalChars: number;
+  nextOffset?: number;
 }
 
 export interface FindTextMatch {
@@ -118,6 +119,7 @@ export interface FindTextOutcomeData {
   matches: FindTextMatch[];
   totalMatches: number;
   offset: number;
+  totalChars: number;
   nextOffset?: number;
 }
 
@@ -169,18 +171,19 @@ export interface ReadUrlContentRequest {
   url: string;
   mode?: "main" | "full";
   selector?: string;
+  offset?: number;
   maxChars?: number;
-  cursor?: string;
   forceRefresh?: boolean;
 }
 
 export interface FindTextInUrlContentRequest {
   url: string;
   query: string;
+  mode?: "main" | "full";
   beforeLines?: number;
   afterLines?: number;
   maxMatches?: number;
-  maxChars?: number;
+  maxQuoteChars?: number;
   caseSensitive?: boolean;
   selector?: string;
   offset?: number;

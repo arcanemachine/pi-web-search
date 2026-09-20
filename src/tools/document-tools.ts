@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { PiWebSearchConfig } from "../config.js";
-import { CursorService } from "../documents/cursor.js";
 import { DocumentService } from "../documents/service.js";
 import type { DocumentToolRuntime } from "./document-shared.js";
 import { registerFindTextInUrlContentTool } from "./find-text-in-url-content.js";
@@ -10,7 +9,6 @@ import { registerSummarizeUrlContentTool } from "./summarize-url-content.js";
 export interface DocumentToolDependencies {
   fetch: typeof globalThis.fetch;
   now(): number;
-  cursorSecret?: Uint8Array;
 }
 
 export interface DocumentToolsController {
@@ -64,7 +62,6 @@ export function createDocumentToolsController(
           fetch: dependencies.fetch,
           now: dependencies.now,
         }),
-        cursors: new CursorService(dependencies.cursorSecret),
       };
     }
     return runtime;

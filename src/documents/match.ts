@@ -2,9 +2,8 @@ import type { FindTextMatch } from "../contracts.js";
 import type { DocumentLine, DocumentSnapshot } from "./types.js";
 
 interface MatchPosition {
-  ordinal: number;
-  start: number;
-  end: number;
+  startCharacter: number;
+  endCharacter: number;
   startLine: number;
   endLine: number;
 }
@@ -19,6 +18,7 @@ export interface MatchPage {
   matches: FindTextMatch[];
   totalMatches: number;
   consumedMatches: number;
+  nextOffset?: number;
   truncated: boolean;
 }
 
@@ -26,13 +26,13 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function lineIndexAt(lines: DocumentLine[], offset: number): number {
+function lineIndexAtCodeUnit(lines: DocumentLine[], offset: number): number {
   let low = 0;
   let high = lines.length - 1;
   let result = 0;
   while (low <= high) {
     const middle = Math.floor((low + high) / 2);
-    if (lines[middle].startOffset <= offset) {
+    if (lines[middle].startCodeUnit <= offset) {
       result = middle;
       low = middle + 1;
     } else {
@@ -58,11 +58,15 @@ function lineIndexAtCharacter(lines: DocumentLine[], offset: number): number {
   return result;
 }
 
-function characterOffset(snapshot: DocumentSnapshot, offset: number): number {
-  const line = snapshot.lines[lineIndexAt(snapshot.lines, offset)];
+function characterOffset(
+  snapshot: DocumentSnapshot,
+  codeUnitOffset: number,
+): number {
+  const line =
+    snapshot.lines[lineIndexAtCodeUnit(snapshot.lines, codeUnitOffset)];
   return (
     line.startCharacter +
-    [...snapshot.content.slice(line.startOffset, offset)].length
+    [...snapshot.content.slice(line.startCodeUnit, codeUnitOffset)].length
   );
 }
 
@@ -70,30 +74,38 @@ function selectedMatches(
   snapshot: DocumentSnapshot,
   query: string,
   caseSensitive: boolean,
-  startOrdinal: number,
+  startOffset: number,
   maxMatches: number,
-): { selected: MatchPosition[]; total: number } {
+): { selected: MatchPosition[]; total: number; nextOffset?: number } {
   const expression = new RegExp(
     escapeRegExp(query),
     caseSensitive ? "gu" : "giu",
   );
   const selected: MatchPosition[] = [];
   let total = 0;
+  let nextOffset: number | undefined;
   for (const match of snapshot.content.matchAll(expression)) {
-    const start = match.index;
-    const end = start + match[0].length;
-    if (total >= startOrdinal && selected.length < maxMatches) {
+    const startCodeUnit = match.index;
+    const endCodeUnit = startCodeUnit + match[0].length;
+    const startCharacter = characterOffset(snapshot, startCodeUnit);
+    const endCharacter = characterOffset(snapshot, endCodeUnit);
+    if (startCharacter < startOffset) continue;
+    if (selected.length < maxMatches) {
       selected.push({
-        ordinal: total,
-        start,
-        end,
-        startLine: lineIndexAt(snapshot.lines, start),
-        endLine: lineIndexAt(snapshot.lines, Math.max(start, end - 1)),
+        startCharacter,
+        endCharacter,
+        startLine: lineIndexAtCodeUnit(snapshot.lines, startCodeUnit),
+        endLine: lineIndexAtCodeUnit(
+          snapshot.lines,
+          Math.max(startCodeUnit, endCodeUnit - 1),
+        ),
       });
+    } else if (nextOffset === undefined) {
+      nextOffset = startCharacter;
     }
     total += 1;
   }
-  return { selected, total };
+  return { selected, total, nextOffset };
 }
 
 function mergeWindows(
@@ -123,7 +135,7 @@ export function matchSnapshot(
   caseSensitive: boolean,
   beforeLines: number,
   afterLines: number,
-  startOrdinal: number,
+  startOffset: number,
   maxMatches: number,
   maxChars: number,
 ): MatchPage {
@@ -131,7 +143,7 @@ export function matchSnapshot(
     snapshot,
     query,
     caseSensitive,
-    startOrdinal,
+    startOffset,
     maxMatches,
   );
   const windows = mergeWindows(
@@ -144,33 +156,49 @@ export function matchSnapshot(
   const records: FindTextMatch[] = [];
   let remainingChars = maxChars;
   let consumedMatches = 0;
-  let truncated = false;
+  let nextOffset = found.nextOffset;
+  const noteNextOffset = (candidate: number): void => {
+    if (nextOffset === undefined || candidate < nextOffset)
+      nextOffset = candidate;
+  };
+  let truncated = found.nextOffset !== undefined;
   const queryCharacters = [...query].length;
 
   for (const window of windows) {
-    if (remainingChars < queryCharacters) break;
+    if (remainingChars < queryCharacters) {
+      noteNextOffset(window.matches[0].startCharacter);
+      truncated = true;
+      break;
+    }
     const firstLine = snapshot.lines[window.startLine];
     const lastLine = snapshot.lines[window.endLine];
     const rawStart = firstLine.startCharacter;
     const rawEnd = lastLine.endCharacter;
     const rawLength = rawEnd - rawStart;
-    const firstMatchStart = characterOffset(snapshot, window.matches[0].start);
+    const firstMatchStart = window.matches[0].startCharacter;
     const quoteLength = Math.min(rawLength, remainingChars);
     if (quoteLength < rawLength) truncated = true;
-    const includedMatches = [] as MatchPosition[];
+    const includedMatches: MatchPosition[] = [];
     let lastMatchEnd = firstMatchStart;
     for (const match of window.matches) {
-      const candidateEnd = characterOffset(snapshot, match.end);
       if (
         includedMatches.length > 0 &&
-        candidateEnd - firstMatchStart > quoteLength
+        match.endCharacter - firstMatchStart > quoteLength
       ) {
         break;
       }
       includedMatches.push(match);
-      lastMatchEnd = candidateEnd;
+      lastMatchEnd = match.endCharacter;
     }
-    if (includedMatches.length === 0) break;
+    if (includedMatches.length === 0) {
+      noteNextOffset(window.matches[0].startCharacter);
+      truncated = true;
+      break;
+    }
+    if (includedMatches.length < window.matches.length) {
+      noteNextOffset(window.matches[includedMatches.length].startCharacter);
+      truncated = true;
+    }
     let quoteStart = rawStart;
     if (rawLength > quoteLength) {
       const focusLength = Math.max(0, lastMatchEnd - firstMatchStart);
@@ -191,8 +219,8 @@ export function matchSnapshot(
     records.push({
       line: snapshot.lines[quoteStartLine].number,
       endLine: snapshot.lines[quoteEndLine].number,
-      startOffset: characterOffset(snapshot, firstMatch.start),
-      endOffset: characterOffset(snapshot, lastMatch.end),
+      startOffset: firstMatch.startCharacter,
+      endOffset: lastMatch.endCharacter,
       quoteStartOffset: quoteStart,
       quoteEndOffset: quoteEnd,
       quote: contentCharacters.slice(quoteStart, quoteEnd).join(""),
@@ -203,13 +231,13 @@ export function matchSnapshot(
     });
     remainingChars -= quoteLength;
     consumedMatches += includedMatches.length;
-    if (includedMatches.length < window.matches.length) break;
   }
 
   return {
     matches: records,
     totalMatches: found.total,
     consumedMatches,
-    truncated,
+    ...(nextOffset === undefined ? {} : { nextOffset }),
+    truncated: truncated || consumedMatches < found.total,
   };
 }

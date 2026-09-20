@@ -64,7 +64,6 @@ function toolsFor(
   createDocumentToolsController(pi, () => config, {
     fetch: globalThis.fetch,
     now: Date.now,
-    cursorSecret: new Uint8Array(32).fill(7),
   }).register();
   assert.ok(fixture.baseUrl);
   return new Map(tools.map((tool) => [tool.name, tool]));

@@ -25,6 +25,10 @@ function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function numberValue(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 function bounded(value: unknown, max = 180): string {
   return truncateChars(stringValue(value), max).value.replace(/[\r\n]+/g, " ");
 }
@@ -150,8 +154,6 @@ export function renderToolCall(
   if (mode && mode !== "main") parts.push(theme.fg("dim", `mode=${mode}`));
   const selector = argumentText(input.selector, 120);
   if (selector) parts.push(theme.fg("dim", `selector=${selector}`));
-  const cursor = argumentText(input.cursor, 48);
-  if (cursor) parts.push(theme.fg("dim", `cursor=${cursor}`));
   const offset = argumentText(input.offset, 30);
   if (offset && offset !== "0") parts.push(theme.fg("dim", `offset=${offset}`));
   return outputComponent(parts.join(" "), true, theme);
@@ -200,13 +202,15 @@ function collapsedResult(
     }
     case "find_text_in_url_content": {
       const matches = Array.isArray(data?.matches) ? data.matches : [];
+      const returned = matches.reduce((count, item) => {
+        if (!isRecord(item)) return count;
+        return count + Math.max(1, Math.floor(numberValue(item.matchCount, 1)));
+      }, 0);
       const total =
-        typeof data?.totalMatches === "number"
-          ? data.totalMatches
-          : matches.length;
+        typeof data?.totalMatches === "number" ? data.totalMatches : returned;
       const first = matches[0];
       return [
-        `${theme.fg("success", "✓")} ${matches.length} match(es) of ${total} for "${bounded(data?.query, 120)}"`,
+        `${theme.fg("success", "✓")} ${returned} match(es) of ${total} for "${bounded(data?.query, 120)}"`,
         isRecord(first)
           ? `• ${bounded(first.quote, 220)}`
           : "No matching document content found.",

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.0 - 2026-09-20
+
+### Changed
+
+- Replaced process-local read cursors with stateless Unicode character-offset continuation.
+- Unified URL, mode, and selector handling across reading, literal finding, and summarization.
+- Added full-mode literal finding and renamed find quote limits to `maxQuoteChars` and `findMaxQuoteChars`.
+- Made overfetching friendly by returning document ends instead of treating them as errors.
+- Removed cursor state, cursor-specific errors, and the old `grepMax*` configuration names.
+
 ## 2.1.0 - 2026-09-11
 
 ### Changed

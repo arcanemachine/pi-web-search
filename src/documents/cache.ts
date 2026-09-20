@@ -15,7 +15,6 @@ export interface DocumentCacheHit {
 
 export class DocumentCache {
   private readonly entries = new Map<string, DocumentCacheEntry>();
-  private readonly snapshotKeys = new Map<string, string>();
   private totalBytes = 0;
 
   constructor(
@@ -28,17 +27,6 @@ export class DocumentCache {
   get(key: string): DocumentCacheHit | undefined {
     const entry = this.entries.get(key);
     if (!entry) return undefined;
-    return this.use(key, entry);
-  }
-
-  getBySnapshotId(snapshotId: string): DocumentCacheHit | undefined {
-    const key = this.snapshotKeys.get(snapshotId);
-    if (!key) return undefined;
-    const entry = this.entries.get(key);
-    if (!entry || entry.snapshot.id !== snapshotId) {
-      this.snapshotKeys.delete(snapshotId);
-      return undefined;
-    }
     return this.use(key, entry);
   }
 
@@ -66,7 +54,6 @@ export class DocumentCache {
     const storedAt = this.now();
     const entry = { snapshot, storedAt, bytes };
     this.entries.set(key, entry);
-    this.snapshotKeys.set(snapshot.id, key);
     this.totalBytes += bytes;
     while (
       this.entries.size > this.maxEntries ||
@@ -97,9 +84,6 @@ export class DocumentCache {
 
   private delete(key: string, entry: DocumentCacheEntry): void {
     if (!this.entries.delete(key)) return;
-    if (this.snapshotKeys.get(entry.snapshot.id) === key) {
-      this.snapshotKeys.delete(entry.snapshot.id);
-    }
     this.totalBytes -= entry.bytes;
   }
 }

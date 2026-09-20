@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DEFAULT_CONFIG, type PiWebSearchConfig } from "../src/config.js";
-import { CursorService, optionsHash } from "../src/documents/cursor.js";
 import { DocumentService } from "../src/documents/service.js";
 
 function config(overrides: Partial<PiWebSearchConfig> = {}): PiWebSearchConfig {
@@ -171,28 +170,6 @@ describe("shared document service", () => {
         (warning) => warning.code === "line_index_truncated",
       ),
       true,
-    );
-  });
-
-  it("uses authenticated opaque operation- and option-bound read cursors", () => {
-    const cursors = new CursorService(new Uint8Array(32).fill(7));
-    const hash = optionsHash({ url: "https://example.com", mode: "main" });
-    const token = cursors.encode({
-      snapshotId: "snapshot",
-      operation: "read",
-      position: 12,
-      optionsHash: hash,
-    });
-    assert.doesNotMatch(token, /example|snapshot/);
-    assert.equal(cursors.decode(token, "read", hash).value?.position, 12);
-    assert.equal(
-      cursors.decode(token, "read", optionsHash({ different: true })).error
-        ?.code,
-      "invalid_request",
-    );
-    assert.equal(
-      cursors.decode(`${token.slice(0, -1)}x`, "read", hash).error?.code,
-      "invalid_request",
     );
   });
 });

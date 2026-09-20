@@ -8,10 +8,25 @@ export interface DocumentOptions {
   selector?: string;
 }
 
+export function normalizeDocumentOptions(
+  url: string,
+  mode: DocumentMode = "main",
+  selector?: string,
+): DocumentOptions {
+  const parsed = new URL(url);
+  parsed.hash = "";
+  const normalizedSelector = selector?.trim();
+  return {
+    url: parsed.toString(),
+    mode,
+    ...(normalizedSelector ? { selector: normalizedSelector } : {}),
+  };
+}
+
 export interface DocumentLine {
   number: number;
-  startOffset: number;
-  endOffset: number;
+  startCodeUnit: number;
+  endCodeUnit: number;
   startCharacter: number;
   endCharacter: number;
   heading?: string;

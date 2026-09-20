@@ -100,6 +100,7 @@ describe("outcome formatter", () => {
         query: "target",
         offset: 2,
         nextOffset: 4,
+        totalChars: 100,
         matches: [
           {
             line: 8,
@@ -128,7 +129,7 @@ describe("outcome formatter", () => {
     });
     assert.match(pagedGrep.content[0].text, /\*\*Matches:\*\* 2 of 6/);
     assert.match(pagedGrep.content[0].text, /\*\*Range:\*\* matches 3-4 of 6/);
-    assert.match(pagedGrep.content[0].text, /\*\*Next offset:\*\* 4/);
+    assert.match(pagedGrep.content[0].text, /\*\*Next call:\*\* `offset=4`/);
 
     const summary = formatOutcome({
       operation: "summarize_url_content",
@@ -170,6 +171,7 @@ describe("outcome formatter", () => {
         matches,
         totalMatches: 30,
         offset: 0,
+        totalChars: 100,
       },
       bounds: {
         truncated: false,

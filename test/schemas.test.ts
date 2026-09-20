@@ -132,30 +132,30 @@ describe("public request schemas", () => {
     );
   });
 
-  it("accepts grep offsets and keeps read cursor validation", () => {
+  it("accepts shared Unicode offsets and rejects the removed cursor shape", () => {
     assert.equal(
       Value.Check(FindTextInUrlContentParams, {
         url: "https://example.com",
         query: "text",
+        mode: "full",
+        offset: 4,
+        maxQuoteChars: 100,
+      }),
+      true,
+    );
+    assert.equal(
+      Value.Check(ReadUrlContentParams, {
+        url: "https://example.com",
         offset: 4,
       }),
       true,
     );
     assert.equal(
-      Value.Check(FindTextInUrlContentParams, {
+      Value.Check(ReadUrlContentParams, {
         url: "https://example.com",
-        query: "text",
         cursor: "cursor",
       }),
       false,
-    );
-    assert.equal(
-      validateReadUrlContentRequest({
-        url: "https://example.com",
-        cursor: "cursor",
-        forceRefresh: true,
-      })?.code,
-      "invalid_request",
     );
   });
 
