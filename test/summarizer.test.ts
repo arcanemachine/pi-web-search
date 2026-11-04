@@ -103,6 +103,7 @@ function contextFor(
 ) {
   return {
     model: currentModel,
+    sessionManager: { getSessionId: () => "parent-session" },
     modelRegistry: {
       find,
       hasConfiguredAuth: () => true,
@@ -249,6 +250,7 @@ describe("summarize_url_content tool", () => {
     );
     assert.equal(result.details.status, "ok");
     assert.equal(options.reasoningEffort, undefined);
+    assert.equal(options.sessionId, "parent-session");
   });
 
   it("passes configured Codex thinking effort on every nested turn", async () => {
@@ -414,6 +416,7 @@ describe("summarize_url_content tool", () => {
       { url: `${fixture.baseUrl}/article` },
       {
         model: active,
+        sessionManager: { getSessionId: () => "parent-session" },
         modelRegistry: {
           find: () => configured,
           hasConfiguredAuth: () => true,

@@ -637,6 +637,8 @@ async function completeWithAbort(
       const options = {
         signal,
         maxTokens: Math.max(1, Math.min(MAX_OUTPUT_TOKENS, model.maxTokens)),
+        // Some providers (e.g. OpenCode Go) reject requests without a session ID.
+        sessionId: context.sessionManager.getSessionId(),
         ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
       } as CompletionOptions;
       pending = context.modelRegistry.complete(model, nested, options);
