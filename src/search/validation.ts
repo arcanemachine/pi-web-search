@@ -6,8 +6,7 @@ import {
 } from "../contracts.js";
 
 export type PayloadResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: OperationalError };
+  { ok: true; value: T } | { ok: false; error: OperationalError };
 
 export interface SearxngPayload {
   results: SearchResult[];

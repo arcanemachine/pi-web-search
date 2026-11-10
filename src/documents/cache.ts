@@ -60,8 +60,7 @@ export class DocumentCache {
       this.totalBytes > this.maxBytes
     ) {
       const oldest = this.entries.entries().next().value as
-        | [string, DocumentCacheEntry]
-        | undefined;
+        [string, DocumentCacheEntry] | undefined;
       if (!oldest) break;
       this.delete(oldest[0], oldest[1]);
     }

@@ -203,8 +203,7 @@ describe("ordered search service", () => {
 
   it("coalesces identical in-flight searches before the limiter", async () => {
     let resolve:
-      | ((value: OutcomeEnvelope<SearchOutcomeData>) => void)
-      | undefined;
+      ((value: OutcomeEnvelope<SearchOutcomeData>) => void) | undefined;
     const pending = new Promise<OutcomeEnvelope<SearchOutcomeData>>((done) => {
       resolve = done;
     });
