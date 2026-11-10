@@ -39,7 +39,6 @@
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
-    "@sinclair/typebox": "^0.34.49",
     "jsdom": "^26.1.0",
     "node-html-markdown": "^2.0.0"
   },
@@ -49,10 +48,12 @@
     "@types/node": "^25.3.3",
     "prettier": "^3.8.3",
     "tsx": "^4.22.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "@sinclair/typebox": "^0.34.49"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": {
